@@ -1,0 +1,1353 @@
+<title>PromptStrava</title>
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<style>
+:root{
+  color-scheme: dark;
+  --bg:#0C0E13; --card:#151922; --elev:#1E2430; --stroke:rgba(255,255,255,.07);
+  --t1:#F2F4F8; --t2:#8B94A6; --t3:#5A6274;
+  --flame:#FC5200; --flame-soft:#FF7A3D; --ember:#FF3B6B;
+  --clarity:#38BDF8; --func:#4ADE80; --eff:#FBBF24; --bad:#F87171;
+  --grad:linear-gradient(135deg,var(--flame),var(--ember));
+  --round:ui-rounded,"SF Pro Rounded",system-ui,-apple-system,"Segoe UI",sans-serif;
+  --mono:ui-monospace,"SF Mono",Menlo,Consolas,monospace;
+}
+*{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
+html,body{margin:0;padding:0}
+body{
+  background:var(--bg); color:var(--t1); font-family:var(--round);
+  min-height:100vh; overflow:hidden;
+}
+button{font-family:var(--round);border:0;background:none;color:inherit;cursor:pointer;padding:0}
+input,textarea{font-family:var(--round);color:var(--t1)}
+:focus-visible{outline:2px solid var(--flame);outline-offset:2px;border-radius:6px}
+
+/* ---------- shell: phone column + desktop rail ---------- */
+#stage{position:fixed;inset:0;display:flex;justify-content:center}
+#stage::before{ /* ambient flame glow, visible on wide screens */
+  content:"";position:absolute;inset:0;pointer-events:none;
+  background:radial-gradient(520px 320px at 50% -80px, rgba(252,82,0,.14), transparent 70%);
+}
+#rail{
+  display:none; width:200px; flex-direction:column; gap:6px;
+  padding:26px 14px calc(18px + env(safe-area-inset-bottom));
+  border-right:1px solid var(--stroke); position:relative;
+}
+#rail .logo{display:flex;align-items:center;gap:10px;padding:6px 10px 22px;font-weight:900;font-size:19px}
+#rail .logo .fl{font-size:24px;filter:drop-shadow(0 0 12px rgba(252,82,0,.55))}
+.railbtn{
+  display:flex;align-items:center;gap:11px;padding:11px 12px;border-radius:12px;
+  font-weight:800;font-size:14px;color:var(--t2);width:100%;text-align:left;
+}
+.railbtn:hover{background:var(--card)}
+.railbtn.on{color:var(--flame);background:rgba(252,82,0,.12)}
+.railbtn .ic{width:19px;height:19px}
+.railfoot{margin-top:auto;padding:10px;font-size:11.5px;font-weight:600;color:var(--t3);line-height:1.5}
+#shell{
+  position:relative;width:100%;max-width:560px;height:100%;
+  display:flex;flex-direction:column;background:var(--bg);
+}
+@media(min-width:900px){
+  #rail{display:flex}
+  #shell{border-left:1px solid var(--stroke);border-right:1px solid var(--stroke)}
+  #tabbar{display:none!important}
+}
+
+#main{flex:1;overflow-y:auto;overflow-x:hidden;padding:0 16px;scrollbar-width:none}
+#main::-webkit-scrollbar{display:none}
+.pagepad{padding-bottom:110px}
+
+/* ---------- tab bar ---------- */
+#tabbar{
+  display:flex;align-items:stretch;justify-content:space-around;
+  border-top:1px solid var(--stroke);background:rgba(12,14,19,.92);backdrop-filter:blur(14px);
+  padding:8px 6px calc(8px + env(safe-area-inset-bottom));
+}
+.tab{display:flex;flex-direction:column;align-items:center;gap:3px;flex:1;color:var(--t3);font-size:10px;font-weight:800;padding:2px 0;min-height:44px}
+.tab .ic{width:23px;height:23px}
+.tab.on{color:var(--flame)}
+.tab-plus{
+  width:46px;height:46px;border-radius:50%;background:var(--grad);color:#fff;
+  display:flex;align-items:center;justify-content:center;margin-top:-14px;
+  box-shadow:0 6px 18px rgba(252,82,0,.45);
+}
+.tab-plus .ic{width:22px;height:22px}
+
+/* ---------- shared components ---------- */
+.hdr{display:flex;align-items:center;justify-content:space-between;padding:18px 0 4px}
+.hdr h1{margin:0;font-size:26px;font-weight:900}
+.hdr .sub{font-size:13px;font-weight:700;color:var(--t2);margin-top:2px}
+.streak{
+  display:flex;align-items:center;gap:5px;background:var(--card);border:1px solid var(--stroke);
+  border-radius:999px;padding:7px 13px;font-weight:900;font-size:15px;
+}
+.card{background:var(--card);border:1px solid var(--stroke);border-radius:18px;padding:16px}
+.secthead{display:flex;align-items:center;justify-content:space-between;margin:22px 0 12px}
+.secthead h2{margin:0;font-size:20px;font-weight:900}
+.secthead .acc{font-size:13px;font-weight:700;color:var(--flame)}
+.chip{
+  display:inline-flex;align-items:center;gap:5px;padding:5px 10px;border-radius:999px;
+  font-size:11px;font-weight:800;line-height:1;white-space:nowrap;
+}
+.filterchip{
+  padding:8px 13px;border-radius:999px;font-size:12px;font-weight:800;
+  background:var(--card);border:1px solid var(--stroke);color:var(--t2);white-space:nowrap;
+}
+.filterchip.on{color:var(--flame);background:rgba(252,82,0,.15);border-color:var(--flame)}
+.hscroll{display:flex;gap:10px;overflow-x:auto;padding:2px;margin:0 -2px;scrollbar-width:none}
+.hscroll::-webkit-scrollbar{display:none}
+.pillrow{display:flex;gap:8px;overflow-x:auto;scrollbar-width:none;padding:2px}
+.pillrow::-webkit-scrollbar{display:none}
+.btn-primary{
+  display:flex;align-items:center;justify-content:center;gap:8px;width:100%;
+  padding:15px;border-radius:15px;background:var(--grad);color:#fff;
+  font-size:17px;font-weight:900;
+}
+.btn-primary:disabled{background:var(--elev);color:var(--t3);cursor:default}
+.btn-secondary{
+  display:flex;align-items:center;justify-content:center;gap:8px;width:100%;
+  padding:15px;border-radius:15px;background:var(--elev);color:var(--t1);
+  font-size:16px;font-weight:900;
+}
+.ic{width:16px;height:16px;flex:none}
+.avatar{
+  display:inline-flex;align-items:center;justify-content:center;border-radius:50%;
+  background:var(--elev);border:1px solid var(--stroke);flex:none;
+}
+
+/* prompt card */
+.pcard{cursor:pointer;transition:transform .15s ease, border-color .15s ease;text-align:left;width:100%;display:block}
+.pcard:hover{transform:translateY(-1px);border-color:rgba(255,255,255,.16)}
+.pcard .top{display:flex;align-items:flex-start;justify-content:space-between;gap:12px}
+.pcard h3{margin:7px 0 0;font-size:17px;font-weight:800;line-height:1.25}
+.pcard .snippet{
+  font-family:var(--mono);font-size:12.5px;color:var(--t2);margin:12px 0;
+  display:-webkit-box;-webkit-line-clamp:3;-webkit-box-orient:vertical;overflow:hidden;line-height:1.5;
+}
+.pcard .foot{display:flex;align-items:center;gap:12px;font-size:12px;font-weight:700;color:var(--t3)}
+.pcard .foot .grow{flex:1;display:flex;align-items:center;gap:6px;min-width:0}
+.pcard .foot .handle{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.statpill{display:inline-flex;align-items:center;gap:4px;font-size:12px;font-weight:700}
+.feedlist{display:flex;flex-direction:column;gap:12px}
+
+/* trending card */
+.tcard{
+  flex:none;width:230px;height:132px;background:var(--card);border:1px solid var(--stroke);
+  border-radius:18px;padding:14px;display:flex;flex-direction:column;text-align:left;cursor:pointer;
+  transition:transform .15s ease;
+}
+.tcard:hover{transform:translateY(-2px)}
+.tcard h3{margin:9px 0 0;font-size:14.5px;font-weight:800;line-height:1.3;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden}
+.tcard .foot{margin-top:auto;display:flex;justify-content:space-between;align-items:center;font-size:11px;font-weight:700;color:var(--t3)}
+
+/* challenge banner */
+.challenge{
+  width:100%;text-align:left;border-radius:20px;padding:18px;color:#fff;background:var(--grad);
+  display:flex;flex-direction:column;gap:9px;cursor:pointer;transition:transform .15s ease;
+  box-shadow:0 8px 28px rgba(252,82,0,.25);
+}
+.challenge:hover{transform:translateY(-1px)}
+.challenge .eyebrow{display:flex;justify-content:space-between;font-size:11px;font-weight:900;letter-spacing:.09em;opacity:.88}
+.challenge .theme{font-size:22px;font-weight:900}
+.challenge .cta{display:flex;align-items:center;gap:6px;font-size:12px;font-weight:700;opacity:.9}
+.challenge .cta .ic{margin-left:auto;width:19px;height:19px}
+
+/* rings */
+.ringwrap{display:flex;flex-direction:column;align-items:center;gap:8px}
+.ringbox{position:relative}
+.ringbox svg{display:block}
+.ring-fg{transition:stroke-dashoffset 1.1s cubic-bezier(.25,.8,.3,1)}
+.ringnum{
+  position:absolute;inset:0;display:flex;align-items:center;justify-content:center;
+  font-weight:900;font-variant-numeric:tabular-nums;
+}
+.ringlabel{font-size:11px;font-weight:800;letter-spacing:.1em;color:var(--t2);text-transform:uppercase}
+.badge-ring{position:relative;flex:none}
+.badge-ring .ringnum{font-size:15px}
+
+/* axis bars */
+.axis{display:flex;flex-direction:column;gap:4px}
+.axis .lab{display:flex;justify-content:space-between;font-size:10px;font-weight:900;letter-spacing:.08em;color:var(--t2)}
+.axis .lab b{font-size:13px}
+.axis .track{height:6px;border-radius:999px;overflow:hidden}
+.axis .fill{height:100%;border-radius:999px;transition:width .9s cubic-bezier(.25,.8,.3,1)}
+
+.rationale{display:flex;gap:10px;align-items:flex-start}
+.rationale .dot{width:8px;height:8px;border-radius:50%;margin-top:5px;flex:none}
+.rationale .rt{font-size:10px;font-weight:900;letter-spacing:.1em}
+.rationale p{margin:3px 0 0;font-size:14px;font-weight:500;line-height:1.45}
+
+/* detail */
+.backbtn{display:inline-flex;align-items:center;gap:6px;color:var(--t2);font-weight:800;font-size:14px;padding:14px 0 4px}
+.backbtn .ic{width:15px;height:15px}
+.dtitle{margin:8px 0 10px;font-size:26px;font-weight:900;line-height:1.15;text-wrap:balance}
+.dmeta{display:flex;align-items:center;gap:8px;font-size:13px;font-weight:600;color:var(--t2)}
+.lineage{
+  display:flex;align-items:center;gap:8px;width:100%;text-align:left;margin-top:14px;
+  padding:12px;border-radius:12px;background:rgba(56,189,248,.1);color:var(--clarity);
+  font-size:12px;font-weight:700;
+}
+.promptbody{font-family:var(--mono);font-size:13.5px;line-height:1.6;white-space:pre-wrap;word-break:break-word;user-select:text;margin:0}
+.copybtn{display:inline-flex;align-items:center;gap:5px;color:var(--flame);font-weight:800;font-size:12px}
+.copybtn.ok{color:var(--func)}
+.modelchip{background:var(--elev);border-radius:999px;padding:5px 10px;font-size:11px;font-weight:800;color:var(--t2)}
+.actionbar{display:flex;gap:10px;margin-top:20px}
+.actionbtn{
+  flex:1;display:flex;flex-direction:column;align-items:center;gap:5px;padding:12px 4px;
+  background:var(--card);border:1px solid var(--stroke);border-radius:14px;
+  font-size:11px;font-weight:800;color:var(--t2);
+}
+.actionbtn .ic{width:18px;height:18px}
+
+/* explore */
+.catgrid{display:grid;grid-template-columns:1fr 1fr;gap:12px;padding-top:8px}
+.cattile{
+  border:1px solid;border-radius:20px;padding:16px;height:148px;display:flex;flex-direction:column;
+  align-items:flex-start;text-align:left;cursor:pointer;transition:transform .15s ease;
+}
+.cattile:hover{transform:translateY(-2px)}
+.cattile .em{font-size:26px}
+.cattile h3{margin:auto 0 2px;font-size:16px;font-weight:900}
+.cattile .n{font-size:12px;font-weight:700;color:var(--t2)}
+.searchbox{
+  display:flex;align-items:center;gap:9px;background:var(--card);border:1px solid var(--stroke);
+  border-radius:13px;padding:11px 13px;margin-top:14px;
+}
+.searchbox input{flex:1;background:none;border:0;font-size:15px;font-weight:600;outline:none}
+.searchbox .ic{color:var(--t3)}
+
+/* leaderboard */
+.seg{display:flex;background:var(--card);border:1px solid var(--stroke);border-radius:11px;padding:3px;gap:3px}
+.seg button{flex:1;padding:8px 4px;border-radius:8px;font-size:13px;font-weight:800;color:var(--t2)}
+.seg button.on{background:var(--elev);color:var(--t1)}
+.lbrow{
+  display:flex;align-items:center;gap:12px;padding:11px 14px;border-radius:16px;
+  background:var(--card);border:1px solid var(--stroke);
+}
+.lbrow.me{background:rgba(252,82,0,.12);border-color:rgba(252,82,0,.6)}
+.lbrow .rk{width:34px;text-align:center;font-weight:900;font-size:15px;color:var(--t2);font-variant-numeric:tabular-nums}
+.lbrow .who{flex:1;min-width:0}
+.lbrow .who b{display:block;font-size:15px}
+.lbrow .who span{font-size:12px;color:var(--t3);font-weight:600}
+.lbrow .delta{display:flex;align-items:center;gap:2px;font-size:11px;font-weight:900}
+.lbrow .best{width:44px;text-align:right;font-size:20px;font-weight:900;font-variant-numeric:tabular-nums}
+.myrank{
+  position:sticky;bottom:14px;display:flex;align-items:center;gap:8px;margin-top:14px;
+  background:var(--grad);border-radius:999px;padding:13px 18px;color:#fff;
+  box-shadow:0 8px 24px rgba(252,82,0,.4);
+}
+.myrank b{font-size:20px;font-weight:900}
+.myrank span{font-size:13px;font-weight:700;opacity:.85}
+
+/* profile */
+.profhead{display:flex;align-items:center;gap:16px;padding-top:18px}
+.statrow{display:flex;gap:10px;margin-top:20px}
+.statcard{
+  flex:1;display:flex;flex-direction:column;align-items:center;gap:4px;padding:16px 4px;
+  background:var(--card);border:1px solid var(--stroke);border-radius:16px;
+}
+.statcard b{font-size:26px;font-weight:900;font-variant-numeric:tabular-nums}
+.statcard span{font-size:10px;font-weight:900;letter-spacing:.1em;color:var(--t2);text-transform:uppercase}
+.weekbars{display:flex;gap:10px;align-items:flex-end;height:76px;margin-top:14px}
+.weekbars .col{flex:1;display:flex;flex-direction:column;justify-content:flex-end;align-items:center;gap:6px;height:100%}
+.weekbars .bar{width:100%;border-radius:999px;background:var(--elev);min-height:8px}
+.weekbars .bar.hot{background:var(--grad)}
+.weekbars .dl{font-size:10px;font-weight:800;color:var(--t3)}
+.badgecard{
+  flex:none;width:108px;display:flex;flex-direction:column;align-items:center;gap:8px;
+  padding:16px 6px;border-radius:16px;border:1px solid;
+}
+.badgecard .em{font-size:24px}
+.badgecard span{font-size:11px;font-weight:800;color:var(--t2);white-space:nowrap}
+.emptystate{display:flex;flex-direction:column;align-items:center;gap:12px;padding:28px 16px;text-align:center}
+.emptystate .em{font-size:30px;opacity:.5}
+.emptystate p{margin:0;font-size:13px;font-weight:600;color:var(--t2);max-width:34ch}
+.emptycta{padding:11px 18px;border-radius:999px;background:var(--grad);color:#fff;font-size:14px;font-weight:900}
+
+/* ---------- overlays ---------- */
+.overlay{position:fixed;inset:0;background:var(--bg);z-index:40;display:flex;justify-content:center}
+.overlay .inner{width:100%;max-width:560px;height:100%;display:flex;flex-direction:column;overflow-y:auto;padding:0 16px;scrollbar-width:none}
+.overlay .inner::-webkit-scrollbar{display:none}
+.ovnav{display:flex;align-items:center;justify-content:space-between;padding:16px 0 6px;position:sticky;top:0;background:var(--bg);z-index:2}
+.ovnav h2{margin:0;font-size:17px;font-weight:900;position:absolute;left:50%;transform:translateX(-50%)}
+.ovnav button{color:var(--t2);font-weight:700;font-size:15px;min-height:44px}
+
+/* submit flow */
+.field{width:100%;background:var(--card);border:1px solid var(--stroke);border-radius:14px;padding:14px;font-size:18px;font-weight:800;outline:none}
+.field::placeholder{color:var(--t3);font-weight:700}
+textarea.field{font-family:var(--mono);font-size:14px;font-weight:500;resize:none;flex:1;min-height:200px;line-height:1.6}
+.subfoot{display:flex;justify-content:space-between;font-size:12px;font-weight:700;color:var(--t2);padding:2px 2px 0}
+.notice{display:flex;gap:8px;align-items:flex-start;padding:12px;border-radius:12px;font-size:12px;font-weight:700;line-height:1.4}
+.catpick{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+.catbtn{
+  display:flex;align-items:center;gap:8px;padding:13px 12px;border-radius:13px;text-align:left;
+  background:var(--card);border:1px solid var(--stroke);color:var(--t2);font-size:13px;font-weight:800;
+}
+.subchips{display:flex;flex-wrap:wrap;gap:8px}
+.subchip{
+  padding:9px 13px;border-radius:999px;background:var(--card);border:1px solid var(--stroke);
+  color:var(--t2);font-size:12px;font-weight:800;
+}
+.judging{flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:20px}
+.spin{animation:spin 1.1s linear infinite;transform-origin:center}
+@keyframes spin{to{transform:rotate(360deg)}}
+.judging h2{margin:0;font-size:20px;font-weight:900}
+.judging p{margin:0;font-size:13px;font-weight:700;color:var(--t2)}
+.tier{font-size:12px;font-weight:900;letter-spacing:.2em;text-transform:uppercase}
+.achieve{display:flex;flex-wrap:wrap;gap:8px;justify-content:center}
+.apill{
+  display:inline-flex;align-items:center;gap:5px;padding:8px 12px;border-radius:999px;
+  font-size:12px;font-weight:900;border:1px solid;animation:pop .45s cubic-bezier(.3,1.6,.5,1) both;
+}
+@keyframes pop{from{transform:scale(.6);opacity:0}to{transform:scale(1);opacity:1}}
+.xpline{display:flex;flex-direction:column;align-items:center;gap:3px}
+.xpline .xp{color:var(--flame);font-size:14px;font-weight:900}
+.xpline .rank{color:var(--t2);font-size:13px;font-weight:700}
+
+/* onboarding */
+.onb{flex:1;display:flex;flex-direction:column;padding:0 24px calc(24px + env(safe-area-inset-bottom))}
+.onbpage{flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:22px;text-align:center}
+.onb h1{margin:0;font-size:38px;font-weight:900;text-wrap:balance}
+.onb h2{margin:0;font-size:27px;font-weight:900;text-wrap:balance}
+.onb .lead{margin:0;font-size:16px;font-weight:600;color:var(--t2);line-height:1.5;max-width:34ch}
+.flamehero{font-size:64px;filter:drop-shadow(0 0 34px rgba(252,82,0,.6))}
+.dots{display:flex;gap:8px;justify-content:center;padding:18px 0}
+.dots span{width:8px;height:8px;border-radius:999px;background:var(--elev);transition:all .3s}
+.dots span.on{width:24px;background:var(--flame)}
+.intgrid{display:grid;grid-template-columns:1fr 1fr;gap:12px;width:100%}
+.intbtn{
+  display:flex;flex-direction:column;align-items:center;gap:8px;padding:18px 8px;border-radius:16px;
+  background:var(--card);border:1px solid var(--stroke);color:var(--t2);font-size:13px;font-weight:800;
+}
+.intbtn .em{font-size:23px}
+
+/* toast */
+#toast{
+  position:fixed;left:50%;bottom:96px;transform:translate(-50%,20px);z-index:60;
+  background:var(--elev);border:1px solid var(--stroke);color:var(--t1);
+  padding:11px 18px;border-radius:999px;font-size:13px;font-weight:800;
+  opacity:0;pointer-events:none;transition:all .3s ease;box-shadow:0 8px 24px rgba(0,0,0,.5);
+}
+#toast.show{opacity:1;transform:translate(-50%,0)}
+
+@media(prefers-reduced-motion:reduce){
+  *{animation-duration:.01ms!important;transition-duration:.01ms!important}
+}
+</style>
+
+<div id="stage">
+  <nav id="rail" aria-label="Primary"></nav>
+  <div id="shell">
+    <main id="main"></main>
+    <nav id="tabbar" aria-label="Primary"></nav>
+  </div>
+</div>
+<div id="toast" role="status"></div>
+
+<script>
+"use strict";
+/* ============================================================
+   PromptStrava — web companion. Same loop, same fire.
+   Mirrors the iOS app: Theme.swift palette, AppStore logic,
+   heuristic judge, and localStorage persistence.
+   ============================================================ */
+
+// ---------- categories ----------
+const CATS = {
+  work:      {name:"Work",             em:"💼", color:"#3B82F6", subs:["Resume Builder","Interview Prep","Email & Slack Drafting","Meeting Summarizer","Code Review","Presentation Builder"]},
+  social:    {name:"Social",           em:"👥", color:"#EC4899", subs:["Dating Profile Writer","Conflict Mediator","Gift Ideas","Toasts & Speeches","Small Talk Coach"]},
+  health:    {name:"Health & Fitness", em:"🏃", color:"#22C55E", subs:["Diet Planner","Workout Coach","Sleep Optimizer","Habit Builder","Mental Reset"]},
+  finance:   {name:"Personal Finance", em:"📈", color:"#14B8A6", subs:["Budgeter","Investment Research","Expense Categorizer","Negotiation Scripts","Tax Prep Helper"]},
+  learning:  {name:"Learning & Skills",em:"🎓", color:"#8B5CF6", subs:["Language Tutor","Concept Explainer","Study Planner","Flashcard Generator","Book Distiller"]},
+  creativity:{name:"Creativity",       em:"🎨", color:"#F97316", subs:["Story Starter","Songwriting Partner","Naming & Branding","Image Prompting","World Builder"]},
+  lifeAdmin: {name:"Life Admin",       em:"✅", color:"#6366F1", subs:["Travel Planner","Meal Prep","Email Triage","Moving Checklist","Appointment Scripts"]},
+};
+const CAT_KEYS = Object.keys(CATS);
+const CHALLENGE = {theme:"Best budgeting prompt", cat:"finance", endsIn:3};
+
+// ---------- icons ----------
+const IC = {
+  home:  '<svg class="ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linejoin="round"><path d="M3 11.2 12 3l9 8.2V21h-6.2v-5.6H9.2V21H3z"/></svg>',
+  grid:  '<svg class="ic" viewBox="0 0 24 24" fill="currentColor"><rect x="3" y="3" width="8" height="8" rx="2"/><rect x="13" y="3" width="8" height="8" rx="2"/><rect x="3" y="13" width="8" height="8" rx="2"/><rect x="13" y="13" width="8" height="8" rx="2"/></svg>',
+  plus:  '<svg class="ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round"><path d="M12 5v14M5 12h14"/></svg>',
+  trophy:'<svg class="ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M7 4h10v6a5 5 0 0 1-10 0zM7 6H4v2a3 3 0 0 0 3 3M17 6h3v2a3 3 0 0 1-3 3M12 15v3M8.5 21h7M12 18c-1.5 0-2.5 1-3.5 3h7c-1-2-2-3-3.5-3z"/></svg>',
+  person:'<svg class="ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><circle cx="12" cy="8" r="4"/><path d="M4.5 21c1.2-3.6 4-5.5 7.5-5.5s6.3 1.9 7.5 5.5"/></svg>',
+  heart: f=>'<svg class="ic" viewBox="0 0 24 24" fill="'+(f?'currentColor':'none')+'" stroke="currentColor" stroke-width="2"><path d="M12 20.8C6.4 16.4 3.2 13 3.2 9.4a4.9 4.9 0 0 1 8.8-3 4.9 4.9 0 0 1 8.8 3c0 3.6-3.2 7-8.8 11.4z"/></svg>',
+  bolt:  '<svg class="ic" viewBox="0 0 24 24" fill="currentColor"><path d="M13 2 4.5 13.5H10L9 22l8.5-11.5H12z"/></svg>',
+  fork:  '<svg class="ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="6.5" cy="5" r="2.2"/><circle cx="17.5" cy="5" r="2.2"/><circle cx="12" cy="19" r="2.2"/><path d="M6.5 7.2v1.3A3.5 3.5 0 0 0 10 12h4a3.5 3.5 0 0 0 3.5-3.5V7.2M12 12v4.8"/></svg>',
+  mark:  f=>'<svg class="ic" viewBox="0 0 24 24" fill="'+(f?'currentColor':'none')+'" stroke="currentColor" stroke-width="2" stroke-linejoin="round"><path d="M6 3h12v18l-6-4.2L6 21z"/></svg>',
+  copy:  '<svg class="ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="9" y="9" width="11" height="11" rx="2"/><path d="M5 15V5a2 2 0 0 1 2-2h10"/></svg>',
+  check: '<svg class="ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round"><path d="M4.5 12.5l5 5L19.5 6.5"/></svg>',
+  back:  '<svg class="ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round"><path d="M15 4l-8 8 8 8"/></svg>',
+  search:'<svg class="ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><circle cx="10.5" cy="10.5" r="6.5"/><path d="M20 20l-4.5-4.5"/></svg>',
+  share: '<svg class="ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3v12M7.5 7.5 12 3l4.5 4.5M5 13v6a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2v-6"/></svg>',
+  up:    '<svg class="ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round"><path d="M12 20V5M6 11l6-6 6 6"/></svg>',
+  down:  '<svg class="ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round"><path d="M12 4v15M6 13l6 6 6-6"/></svg>',
+  arrow: '<svg class="ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"><path d="M4 12h15M13 6l6 6-6 6"/></svg>',
+  wand:  '<svg class="ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M5 19 17 7M15 5l1-2 1 2 2 1-2 1-1 2-1-2-2-1zM5 7l.7-1.5L7.2 5l-1.5-.7L5 3l-.7 1.3L2.8 5l1.5.5z"/></svg>',
+};
+
+// ---------- helpers ----------
+const $ = s => document.querySelector(s);
+const esc = s => String(s).replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;").replace(/"/g,"&quot;");
+const hoursAgo = h => new Date(Date.now() - h*3600e3).toISOString();
+const dayKey = d => { const x=new Date(d); return x.getFullYear()+"-"+String(x.getMonth()+1).padStart(2,"0")+"-"+String(x.getDate()).padStart(2,"0"); };
+const hashStr = s => { let h=5381; for(let i=0;i<s.length;i++) h=((h<<5)+h+s.charCodeAt(i))|0; return h & 0x7FFFFFFF; };
+const REDUCED = matchMedia("(prefers-reduced-motion: reduce)").matches;
+
+const composite = sc => Math.round(sc.c.v*0.35 + sc.f.v*0.40 + sc.e.v*0.25);
+const tierName = n => n<40?"Rough Draft": n<60?"Solid": n<75?"Sharp": n<90?"Elite":"Legendary";
+const compColor = n => n<40?"var(--bad)": n<60?"var(--eff)": n<80?"var(--flame-soft)":"var(--func)";
+const tokensOf = t => Math.max(1, Math.round(t.length/4));
+const levelOf = xp => Math.max(1, Math.floor(Math.sqrt(xp)/10)+1);
+const xpFloor = lv => { const l=(lv-1)*10; return l*l; };
+function timeAgo(iso){
+  const m = Math.max(1, Math.round((Date.now()-new Date(iso))/60000));
+  if(m<60) return m+"m ago";
+  const h = Math.round(m/60); if(h<24) return h+"h ago";
+  return Math.round(h/24)+"d ago";
+}
+
+// ---------- seed data (stable IDs, mirrors AppStore.seed) ----------
+function seedUsers(){
+  return {
+    me:  {id:"u1", handle:"you",         name:"You",           em:"🔥", xp:940,  streak:4,  badges:[{name:"Early Adopter", em:"✨", color:"#FC5200"}]},
+    all: [
+      {id:"u2", handle:"mayaprompts", name:"Maya Chen",     em:"🧠", xp:4210, streak:23, badges:[]},
+      {id:"u3", handle:"devrelDan",   name:"Dan Okafor",    em:"⚡️", xp:3390, streak:11, badges:[]},
+      {id:"u4", handle:"junebug",     name:"June Park",     em:"🌱", xp:2875, streak:17, badges:[]},
+      {id:"u5", handle:"rio_runs",    name:"Rio Alvarez",   em:"🏃", xp:2140, streak:8,  badges:[]},
+      {id:"u6", handle:"frugalsam",   name:"Sam Whitfield", em:"💸", xp:1980, streak:5,  badges:[]},
+      {id:"u7", handle:"adawrites",   name:"Ada Lindqvist", em:"✍️", xp:1720, streak:14, badges:[]},
+      {id:"u8", handle:"kenzo",       name:"Kenzo Tanaka",  em:"🎯", xp:1510, streak:2,  badges:[]},
+    ]
+  };
+}
+function sc(c,cr,f,fr,e,er){ return {c:{v:c,r:cr}, f:{v:f,r:fr}, e:{v:e,r:er}}; }
+function seedPrompts(){
+  const P = (id,title,text,author,cat,sub,h,likes,used,forks,comments,score,forkedFrom)=>({
+    id,title,text,author,cat,sub,createdAt:hoursAgo(h),likes,used,forks,comments,score,forkedFrom:forkedFrom||null,
+    models:["Claude","ChatGPT","Gemini"]
+  });
+  const list = [
+    P("p101","Bullet-proof resume tailoring","You are an expert technical recruiter. I will paste a job description and my current resume.\n\n1. List the top 5 requirements from the JD.\n2. For each, rewrite one of my bullets to prove it, keeping metrics.\n3. Flag anything on my resume that hurts my case.\n\nFormat: markdown table with columns Requirement | Rewritten Bullet | Why it works. Keep bullets under 25 words.",
+      "u2","work","Resume Builder",27,214,891,37,24,
+      sc(88,"Numbered steps and a strict table format leave almost zero ambiguity.",91,"Requirement-to-bullet mapping with metrics guarantees usable output.",84,"Tight — only the 25-word cap phrasing could be leaner.")),
+    P("p102","The 3-question budget autopsy","Act as a blunt financial coach. Here are my last 30 days of transactions: [paste CSV].\n\nAnswer exactly three questions:\n1. What single category should I cut first, and by how much?\n2. What recurring charge am I probably forgetting about?\n3. If I keep this up, what does my year look like in one sentence?\n\nNo generic advice. Use my numbers.",
+      "u6","finance","Budgeter",6,187,640,22,18,
+      sc(90,"Exactly three questions, exact input slot — nothing left to guess.",86,"'Use my numbers' plus the CSV slot forces grounded answers.",92,"Ruthless token economy; every line changes the output.")),
+    P("p103","Meeting → decisions extractor","Summarize this meeting transcript. Output three sections: DECISIONS (what was agreed, who owns it, by when), OPEN QUESTIONS, and RISKS. Max 5 bullets per section. If a decision has no owner, write ⚠️ NO OWNER. Transcript: [paste]",
+      "u3","work","Meeting Summarizer",48,156,720,41,12,
+      sc(85,"Fixed sections and bullet caps make the output shape predictable.",88,"The NO OWNER flag is a smart edge-case handler most people miss.",90,"One paragraph, zero filler. Strava-grade efficiency.")),
+    P("p104","Hypertrophy coach with progression","You are a strength coach. Build me a 4-day upper/lower split.\n\nContext: [experience level], [available equipment], [injuries].\nRules: sessions under 60 min, progressive overload plan for 8 weeks, include RPE targets.\nOutput: week-by-week table, then a one-paragraph deload explanation.",
+      "u5","health","Workout Coach",33,132,445,19,9,
+      sc(82,"Context slots are clear; 'upper/lower split' assumes some jargon knowledge.",87,"Rules + RPE + deload handling covers the edge cases that break generic plans.",80,"Could merge the context lines, but nothing is wasted.")),
+    P("p105","Explain like I'm smart but new","Explain [concept] to someone who is intelligent but has zero background in this field. Use one everyday analogy, then the precise technical definition, then the single most common misconception. End with a one-line test I can use to check if I actually got it.",
+      "u4","learning","Concept Explainer",72,241,1102,63,31,
+      sc(89,"The analogy→definition→misconception arc is unambiguous and ordered.",85,"Self-test ending makes the output verifiable — rare and valuable.",93,"Four sentences, endlessly reusable. Peak efficiency.")),
+    P("p106","Dating profile, but actually me","I'll give you 5 boring facts about me and 2 stories my friends always tell about me. Turn them into a dating profile that sounds like a human wrote it: no clichés (ban 'love to laugh', 'partner in crime', 'fluent in sarcasm'), max 90 words, first person, ends with a question that's easy to reply to.\n\nFacts: [paste]",
+      "u7","social","Dating Profile Writer",62,178,530,28,22,
+      sc(84,"The banned-cliché list is doing serious disambiguation work.",83,"Word cap + reply-hook ending shapes genuinely usable output.",86,"Lean for how much steering it packs in.")),
+    P("p107","Trip planner that respects my energy","Plan a [N]-day trip to [city]. Constraints: one 'anchor' activity per day max, nothing before 9am, every day includes one no-plan block of 3+ hours, walking distances under 30 min between stops. Output as a day-by-day list with a backup rainy-day option per day.",
+      "u4","lifeAdmin","Travel Planner",96,121,388,15,7,
+      sc(86,"Concrete constraints (9am, 30 min, 3+ hrs) eliminate vague outputs.",84,"Rainy-day fallback per day handles the classic trip-plan failure mode.",85,"Dense constraint packing — nothing to trim.")),
+    P("p108","Naming machine (with taste)","Generate 20 names for [thing]. Process: first list 5 relevant metaphors, then derive 4 names from each. Rules: pronounceable on first read, no puns, .com-plausible, nothing that sounds like a pharmaceutical. Then pick your top 3 and defend each in one sentence.",
+      "u8","creativity","Naming & Branding",120,98,305,12,8,
+      sc(83,"Metaphor-first process is clever and clearly sequenced.",81,"Selection + defense step turns a list into a decision.",82,"The pharma joke earns its tokens by banning a real failure mode.")),
+    P("p109","Slack message de-escalator","Rewrite this Slack message so it keeps the substance but reads as calm and collaborative. Keep it under 4 sentences. Do not add exclamation marks or corporate praise. Message: [paste]",
+      "u3","work","Email & Slack Drafting",11,143,812,9,5,
+      sc(87,"Single transformation, hard length cap — impossible to misread.",80,"Covers tone traps (exclamation, praise) but not threading context.",94,"Two sentences of instruction for a daily-use tool. Elite.")),
+    P("p110","Sleep debt negotiator","You are a sleep scientist who hates wellness fluff. My situation: [sleep schedule, wake time, caffeine habits]. Give me the three highest-leverage changes ranked by effect size, each with the specific study-backed mechanism in one sentence. Then a realistic 2-week adoption plan. No melatonin unless the evidence is strong for my case.",
+      "u5","health","Sleep Optimizer",144,89,260,7,6,
+      sc(81,"Persona plus ranked-output request is clear; input slot is broad.",82,"Effect-size ranking and the melatonin guard show real edge-case thinking.",79,"A touch of persona flourish, but it steers tone effectively.")),
+    P("p111","Investment thesis stress-tester","I believe [investment thesis]. Argue the bear case as a skeptical analyst: 3 strongest counterarguments with the data you'd want to verify each. Then tell me what evidence would change your mind. Do not soften conclusions.",
+      "u6","finance","Investment Research",80,167,490,25,19,
+      sc(85,"Role, count, and no-softening rule set expectations precisely.",84,"Falsifiability ask ('what would change your mind') is the killer feature.",88,"Compact for a research-grade prompt.")),
+    P("p112","Flashcards that fight back","Turn these notes into 15 Anki-style flashcards. Mix: 8 recall, 4 application ('what would happen if…'), 3 reversed. Front under 20 words. Output as CSV: front,back. Notes: [paste]",
+      "u4","learning","Flashcard Generator",44,110,601,33,10,
+      sc(88,"Exact mix, exact format, exact caps. Machine-readable spec.",87,"Card-type mix targets real learning, not just recall.",91,"CSV output kills all formatting waste.")),
+    P("p113","Gift ideas from tiny clues","Suggest gifts for someone based only on these clues: [3 things they mentioned recently]. Budget [X]. Give 5 ideas: each with why it maps to a clue, where to buy, and a risk ('might already own one'). No candles, no mugs, no gift cards.",
+      "u7","social","Gift Ideas",168,76,214,5,4,
+      sc(80,"Clue-mapping requirement is clear; 'recently' does light lifting.",79,"Risk field and the banned-defaults list prevent lazy outputs.",83,"Trim the parenthetical example and it's near-perfect.")),
+    P("p114","Code review, severity-sorted","Review this diff. Report every issue you find, sorted by severity (correctness > security > performance > style). For each: file:line, one-sentence issue, one-sentence fix. If you're uncertain, say so and report it anyway. End with the single change you'd block the merge on. Diff: [paste]",
+      "u2","work","Code Review",20,198,705,46,27,
+      sc(90,"Severity order and per-issue format are fully specified.",92,"'Report even if uncertain' prevents the silent-filtering failure mode.",87,"Dense, surgical, reusable on any diff.")),
+    P("p115","Meal prep for people who won't","Make me a 5-day lunch prep plan: one 90-minute Sunday cook session, max 8 ingredients total, no recipe repeated from last week ([paste last week]), every meal survives 4 days in a fridge. Output: shopping list grouped by store aisle, then the cook-order timeline.",
+      "u5","lifeAdmin","Meal Prep",53,104,350,11,8,
+      sc(84,"Hard numeric constraints do the disambiguation.",85,"Fridge-survival and repeat-avoidance handle real-world failure modes.",86,"Aisle-grouped list shows output-shape thinking.")),
+    P("p116","Song sketch from a feeling","I'll describe a feeling and a memory. Write: a title, a 4-line chorus with a singable melody note (syllable stress marked), and two verse directions I could take. Genre: [genre]. Avoid rhyming 'fire/desire' and 'heart/apart'. Feeling: [paste]",
+      "u8","creativity","Songwriting Partner",108,67,150,6,5,
+      sc(78,"Output pieces are enumerated; 'melody note' is slightly fuzzy.",76,"Banned rhymes are a nice touch; syllable marking may vary run to run.",81,"Compact given the creative surface area.")),
+    P("p117","Interview story polisher","Take this rough story from my work history and shape it into a STAR answer under 90 seconds spoken. Keep my voice, cut filler, end on measurable impact. Story: [paste]",
+      "u1","work","Interview Prep",26,12,31,1,2,
+      sc(82,"STAR + time cap is a crisp, testable spec.",78,"Good constraints; could specify what counts as 'impact'.",88,"Two sentences, zero waste.")),
+    P("p118","Resume tailoring — PM edition","You are a product management recruiter. I will paste a JD and my resume.\n\n1. Extract the 5 outcomes this role is hired to deliver.\n2. Rewrite my bullets to prove I've delivered similar outcomes, keeping metrics.\n3. Kill any bullet that describes activity instead of outcome.\n\nFormat: markdown table Requirement | Rewritten Bullet | Evidence strength (1-5).",
+      "u4","work","Resume Builder",15,54,130,3,6,
+      sc(87,"Outcome-vs-activity distinction sharpens the original.",89,"Evidence-strength column adds a self-audit the original lacked.",83,"Slightly longer than the original for similar output."),"p101"),
+  ];
+  list[list.length-1].models = ["Claude","ChatGPT"];
+  return list;
+}
+
+// ---------- store + persistence ----------
+const LS_KEY = "promptstrava-web-v1";
+let store = null;
+
+function computeStreak(daySet){
+  let d = new Date(); d.setHours(0,0,0,0);
+  if(!daySet.has(dayKey(d))) d.setDate(d.getDate()-1);
+  let n = 0;
+  while(daySet.has(dayKey(d))){ n++; d.setDate(d.getDate()-1); }
+  return n;
+}
+
+function loadStore(){
+  const seedU = seedUsers();
+  let prompts = seedPrompts();
+  let me = seedU.me;
+  let days = new Set([1,2,3,4].map(n=>{ const d=new Date(); d.setDate(d.getDate()-n); return dayKey(d); }));
+  let liked=new Set(), used=new Set(), saved=new Set(), interests=new Set();
+  let onboarded = false;
+
+  let raw = null;
+  try { raw = JSON.parse(localStorage.getItem(LS_KEY)); } catch(e){}
+  if(raw){
+    onboarded = !!raw.onboarded;
+    me = raw.user || me;
+    days = new Set(raw.days||[]);
+    liked = new Set(raw.liked||[]); used = new Set(raw.used||[]); saved = new Set(raw.saved||[]);
+    interests = new Set(raw.interests||[]);
+    const mine = raw.myPrompts||[];
+    const mineIDs = new Set(mine.map(p=>p.id));
+    prompts = mine.concat(prompts.filter(p=>!mineIDs.has(p.id)));
+    // re-apply my engagement to freshly seeded community prompts
+    for(const id of liked) if(!mineIDs.has(id)){ const p=prompts.find(x=>x.id===id); if(p) p.likes++; }
+    for(const id of used)  if(!mineIDs.has(id)){ const p=prompts.find(x=>x.id===id); if(p) p.used++; }
+    for(const p of mine) if(p.forkedFrom && !mineIDs.has(p.forkedFrom)){ const o=prompts.find(x=>x.id===p.forkedFrom); if(o) o.forks++; }
+  }
+  me.streak = computeStreak(days);
+  store = {me, users:seedU.all, prompts, liked, used, saved, interests, days, onboarded};
+}
+
+function persist(){
+  const myPrompts = store.prompts.filter(p=>p.author===store.me.id);
+  localStorage.setItem(LS_KEY, JSON.stringify({
+    onboarded: store.onboarded, user: store.me, myPrompts,
+    liked:[...store.liked], used:[...store.used], saved:[...store.saved],
+    interests:[...store.interests], days:[...store.days],
+  }));
+}
+
+const userOf = id => id===store.me.id ? store.me : (store.users.find(u=>u.id===id) || store.me);
+const promptOf = id => store.prompts.find(p=>p.id===id);
+const myPrompts = () => store.prompts.filter(p=>p.author===store.me.id).sort((a,b)=>new Date(b.createdAt)-new Date(a.createdAt));
+const savedPrompts = () => store.prompts.filter(p=>store.saved.has(p.id)).sort((a,b)=>new Date(b.createdAt)-new Date(a.createdAt));
+const trending = () => [...store.prompts].sort((a,b)=>(b.used*3+b.likes)-(a.used*3+a.likes)).slice(0,6);
+const feed = () => [...store.prompts].sort((a,b)=>new Date(b.createdAt)-new Date(a.createdAt));
+function personalizedFeed(){
+  if(!store.interests.size) return feed();
+  const f = feed().filter(p=>store.interests.has(p.cat)||p.author===store.me.id);
+  return f.length ? f : feed();
+}
+const inCategory = (cat,sub) => store.prompts
+  .filter(p=>p.cat===cat && (!sub || p.sub===sub))
+  .sort((a,b)=>(b.score?composite(b.score):0)-(a.score?composite(a.score):0));
+function searchPrompts(q){
+  q = q.trim().toLowerCase();
+  if(!q) return [];
+  return store.prompts.filter(p=>
+    p.title.toLowerCase().includes(q) || p.text.toLowerCase().includes(q) ||
+    p.sub.toLowerCase().includes(q) || CATS[p.cat].name.toLowerCase().includes(q) ||
+    userOf(p.author).handle.toLowerCase().includes(q)
+  ).sort((a,b)=>(b.score?composite(b.score):0)-(a.score?composite(a.score):0));
+}
+
+// ---------- leaderboard ----------
+function leaderboard(cat, tf){
+  const cutoff = tf==="week" ? Date.now()-7*864e5 : tf==="month" ? Date.now()-30*864e5 : 0;
+  const best = {};
+  for(const p of store.prompts){
+    if(cat && p.cat!==cat) continue;
+    if(cutoff && new Date(p.createdAt) < cutoff) continue;
+    if(!p.score) continue;
+    const c = composite(p.score);
+    const e = best[p.author] || {score:0,count:0};
+    best[p.author] = {score:Math.max(e.score,c), count:e.count+1};
+  }
+  return Object.entries(best)
+    .sort((a,b)=> b[1].score!==a[1].score ? b[1].score-a[1].score : b[1].count-a[1].count)
+    .map(([uid,v],i)=>({rank:i+1, user:userOf(uid), best:v.score, count:v.count, delta:(hashStr(uid)%5)-2}));
+}
+const myRank = (cat,tf) => (leaderboard(cat,tf).find(e=>e.user.id===store.me.id)||{}).rank || null;
+
+// ---------- heuristic judge (port of HeuristicJudge) ----------
+function judgeScore(text){
+  const t = text.trim(), lower = t.toLowerCase();
+  const words = lower.split(/\s+/).filter(Boolean), wc = words.length;
+  const has = a => a.some(s=>lower.includes(s));
+  const hasRole = has(["you are","act as","your role"]);
+  const hasFormat = has(["format","bullet","table","json","markdown","numbered","sections","output"]);
+  const hasConstraints = has(["must","only","never","always","limit","no more than","at most","avoid","don't"]);
+  const hasStructure = t.includes("\n") && (t.includes("1.")||t.includes("- ")||t.includes("#")||t.includes(":")||t.includes("<"));
+  const hasSlot = t.includes("[")||t.includes("{")||lower.includes("i will provide")||lower.includes("i'll paste");
+  const hasExamples = has(["for example","e.g.","example:","such as"]);
+  const hasAudience = has(["for a","aimed at","audience","my "]);
+  const asksFirst = has(["ask me","clarifying question","before you start"]);
+  const filler = ["please","kindly","if you don't mind","i was wondering"].filter(s=>lower.includes(s)).length;
+  const hedging = ["maybe","perhaps","kind of","sort of","somewhat","i guess"].filter(s=>lower.includes(s)).length;
+  const uniq = wc ? new Set(words).size/wc : 0;
+
+  let c = 42; if(hasRole)c+=10; if(hasStructure)c+=12; if(hasFormat)c+=10; if(hasAudience)c+=5;
+  c -= hedging*5; if(wc<8)c-=12; if(wc>350)c-=8;
+  let f = 40; if(hasFormat)f+=12; if(hasConstraints)f+=10; if(hasSlot)f+=8; if(hasExamples)f+=8;
+  if(asksFirst)f+=6; if(hasRole)f+=4; if(wc<8)f-=14;
+  let e = 55; e += wc<8?6 : wc<60?18 : wc<150?10 : wc<300?-2 : -14;
+  e += (uniq-0.6)*40; e -= filler*4 + hedging*3;
+
+  const jitter = (hashStr(t)%7)-3;
+  const clamp = v => Math.round(Math.min(98, Math.max(15, v+jitter)));
+  return {
+    c:{v:clamp(c), r: hasStructure ? "Clear structure helps — tighten any ambiguous verbs to lock in interpretation."
+                                   : "Add structure (numbered steps or sections) so the model can't misread intent."},
+    f:{v:clamp(f), r: hasFormat ? (hasConstraints ? "Format and constraints are specified — solid, repeatable output."
+                                                  : "Output format is set; add hard constraints to handle edge cases.")
+                                : "Specify the exact output format you want — that's the #1 reliability booster."},
+    e:{v:clamp(e), r: wc>300 ? "Trim it down — long preambles burn tokens without changing the output."
+                    : filler>1 ? "Cut the pleasantries; the model doesn't need them and they cost tokens."
+                    : "Good token economy — every line is pulling weight."},
+  };
+}
+
+// category auto-detect (port of CategoryDetector)
+function detectCategory(text){
+  const lower = text.toLowerCase();
+  const KW = {
+    work:["resume","cv","interview","email","slack","meeting","standup","code review","pull request","boss","coworker","presentation","jira"],
+    health:["workout","diet","meal plan","calorie","protein","sleep","gym","run","fitness","stretch","habit"],
+    finance:["budget","invest","stock","expense","savings","salary","negotiat","tax","portfolio","debt"],
+    social:["dating","tinder","hinge","gift","conflict","apolog","toast","wedding speech","friend","text back"],
+    learning:["explain","teach","learn","study","flashcard","language","vocab","summarize this book","concept","quiz me"],
+    creativity:["story","song","lyric","poem","brand name","logo","midjourney","image prompt","character","world"],
+    lifeAdmin:["travel","itinerary","packing","grocery","moving","appointment","errand","declutter","schedule my"],
+  };
+  let best = ["work",0];
+  for(const [cat,terms] of Object.entries(KW)){
+    const hits = terms.filter(t=>lower.includes(t)).length;
+    if(hits > best[1]) best = [cat,hits];
+  }
+  const cat = best[1]>0 ? best[0] : "work";
+  const conf = best[1]===0 ? 0.3 : Math.min(0.95, 0.55 + best[1]*0.13);
+  const sub = CATS[cat].subs.reduce((a,b)=>{
+    const scoreOf = n => n.toLowerCase().split(" ").filter(w=>w.length>3&&lower.includes(w)).length;
+    return scoreOf(b) > scoreOf(a) ? b : a;
+  }, CATS[cat].subs[0]);
+  return {cat, sub, conf};
+}
+
+// ---------- submit ----------
+async function doSubmit(title, text, cat, sub, forkOfId){
+  await new Promise(r=>setTimeout(r, REDUCED?200:1400));
+  const score = judgeScore(text);
+  const comp = composite(score);
+  const prevBest = Math.max(-1, ...myPrompts().filter(p=>p.score).map(p=>composite(p.score)));
+  const lvBefore = levelOf(store.me.xp);
+  const badgesBefore = new Set(store.me.badges.map(b=>b.name));
+
+  const prompt = {
+    id:"m"+Date.now(), title, text, author:store.me.id, cat, sub,
+    createdAt:new Date().toISOString(), likes:0, used:0, forks:0, comments:0,
+    score, forkedFrom:forkOfId||null, models:["Claude","ChatGPT","Gemini"],
+  };
+  store.prompts.unshift(prompt);
+  if(forkOfId){ const o=promptOf(forkOfId); if(o) o.forks++; }
+
+  store.me.xp += comp;
+  store.days.add(dayKey(new Date()));
+  store.me.streak = computeStreak(store.days);
+  const award = (cond,name,em,color)=>{ if(cond && !store.me.badges.some(b=>b.name===name)) store.me.badges.push({name,em,color}); };
+  award(comp>=85, "Elite Prompt","👑","#FBBF24");
+  award(myPrompts().length>=5, "Prolific","🗂️","#8B5CF6");
+  award(score.e.v>=90, "Token Miser","⚡","#38BDF8");
+  award(store.me.streak>=7, "Week Warrior","🔥","#FC5200");
+  persist();
+
+  return {
+    prompt,
+    newBadges: store.me.badges.filter(b=>!badgesBefore.has(b.name)),
+    didLevelUp: levelOf(store.me.xp) > lvBefore,
+    isPersonalBest: comp > prevBest,
+    weeklyRank: myRank(cat,"week"),
+  };
+}
+
+// ---------- UI state ----------
+const ui = {
+  tab:"home", stack:[], feedAll:false,
+  lbTime:"week", lbCat:null, profTab:"mine", search:"",
+  onbPage:0,
+  sub:null, // {step, seed:{cat,sub,challenge,forkOf}, title, text, cat, subcat, conf, outcome}
+};
+
+// ---------- tiny components ----------
+function ringHTML(score,{size=96,lw=9,color="var(--flame)",label=null,animate=false,delay=0}={}){
+  const r=(size-lw)/2, circ=(2*Math.PI*r).toFixed(1);
+  const off=(circ*(1-score/100)).toFixed(1);
+  return `<div class="ringwrap" role="img" aria-label="${esc(label||"Score")}: ${score} out of 100">
+    <div class="ringbox" style="width:${size}px;height:${size}px">
+      <svg width="${size}" height="${size}" viewBox="0 0 ${size} ${size}" aria-hidden="true">
+        <circle cx="${size/2}" cy="${size/2}" r="${r}" stroke="${color}" opacity=".15" stroke-width="${lw}" fill="none"/>
+        <circle class="ring-fg${animate?" pending":""}" cx="${size/2}" cy="${size/2}" r="${r}"
+          stroke="${color}" stroke-width="${lw}" stroke-linecap="round" fill="none"
+          stroke-dasharray="${circ}" stroke-dashoffset="${animate?circ:off}"
+          data-off="${off}" data-delay="${delay}"
+          transform="rotate(-90 ${size/2} ${size/2})"/>
+      </svg>
+      <div class="ringnum" style="font-size:${Math.round(size*0.3)}px"
+           ${animate?`data-target="${score}" data-delay="${delay}"`:""}>${animate?0:score}</div>
+    </div>
+    ${label?`<div class="ringlabel">${esc(label)}</div>`:""}
+  </div>`;
+}
+function activateRings(scope){
+  scope.querySelectorAll(".ring-fg.pending").forEach(el=>{
+    const go = ()=>{ el.style.strokeDashoffset = el.dataset.off; };
+    if(REDUCED){ go(); return; }
+    setTimeout(()=>requestAnimationFrame(go), Number(el.dataset.delay)*1000 + 60);
+  });
+  scope.querySelectorAll(".ringnum[data-target]").forEach(el=>{
+    const target = Number(el.dataset.target);
+    if(REDUCED){ el.textContent = target; return; }
+    setTimeout(()=>{
+      const t0 = performance.now(), dur = 950;
+      const tick = now=>{
+        const k = Math.min(1,(now-t0)/dur);
+        el.textContent = Math.round(target * (1-Math.pow(1-k,3)));
+        if(k<1) requestAnimationFrame(tick);
+      };
+      requestAnimationFrame(tick);
+    }, Number(el.dataset.delay)*1000 + 60);
+  });
+}
+function badgeRing(score,size=44){
+  return `<span class="badge-ring">${ringHTML(score,{size,lw:4,color:compColor(score)})}</span>`;
+}
+const catChip = (cat,sub)=>{
+  const c=CATS[cat];
+  return `<span class="chip" style="color:${c.color};background:${c.color}24">${c.em} ${esc(sub||c.name)}</span>`;
+};
+const avatar = (u,size=36)=>`<span class="avatar" style="width:${size}px;height:${size}px;font-size:${Math.round(size*0.5)}px">${u.em}</span>`;
+
+function promptCardHTML(p){
+  const liked = store.liked.has(p.id);
+  const comp = p.score ? composite(p.score) : null;
+  const u = userOf(p.author);
+  return `<button class="pcard card" onclick="openDetail('${p.id}')">
+    <div class="top">
+      <div style="min-width:0">
+        ${catChip(p.cat,p.sub)}
+        <h3>${esc(p.title)}</h3>
+      </div>
+      ${comp!==null?badgeRing(comp):""}
+    </div>
+    <div class="snippet">${esc(p.text.replace(/\n/g," "))}</div>
+    <div class="foot">
+      <span class="grow">${avatar(u,22)}<span class="handle">@${esc(u.handle)}</span></span>
+      <span class="statpill" style="color:var(--eff)">${IC.bolt}${p.used}</span>
+      <span class="statpill" style="color:${liked?"var(--ember)":"var(--t2)"}">${IC.heart(liked)}${p.likes}</span>
+      <span class="statpill" style="color:var(--t2)">${IC.fork}${p.forks}</span>
+    </div>
+  </button>`;
+}
+
+// ---------- navigation & render ----------
+let lastViewKey = "";
+function viewKey(){
+  return JSON.stringify([ui.tab, ui.stack, ui.feedAll, ui.lbTime, ui.lbCat, ui.profTab]);
+}
+function render(keepScroll){
+  const main = $("#main");
+  const prevScroll = main.scrollTop;
+  const key = viewKey();
+  renderRail(); renderTabbar();
+
+  if(!store.onboarded){ main.innerHTML=""; renderOnboarding(); return; }
+  closeOnboarding();
+
+  let html = "";
+  const top = ui.stack[ui.stack.length-1];
+  if(top && top.t==="detail") html = detailHTML(top.id);
+  else if(top && top.t==="cat") html = categoryPageHTML(top);
+  else {
+    switch(ui.tab){
+      case "home": html = homeHTML(); break;
+      case "explore": html = exploreHTML(); break;
+      case "ranks": html = ranksHTML(); break;
+      case "profile": html = profileHTML(); break;
+    }
+  }
+  main.innerHTML = `<div class="pagepad">${html}</div>`;
+  activateRings(main);
+  if(keepScroll && key===lastViewKey) main.scrollTop = prevScroll; else main.scrollTop = 0;
+  lastViewKey = key;
+
+  if(ui.tab==="explore" && !top){
+    const inp = $("#searchinput");
+    if(inp && ui.searchFocus){ inp.focus(); const v=inp.value; inp.value=""; inp.value=v; }
+  }
+}
+function nav(tab){ ui.tab=tab; ui.stack=[]; ui.searchFocus=false; render(); }
+function openDetail(id){ ui.stack.push({t:"detail",id}); render(); }
+function openCat(cat){ ui.stack.push({t:"cat",cat,sub:null}); render(); }
+function back(){ ui.stack.pop(); render(); }
+
+function renderRail(){
+  const items = [
+    ["home","Home",IC.home],["explore","Explore",IC.grid],
+    ["ranks","Ranks",IC.trophy],["profile","Profile",IC.person],
+  ];
+  $("#rail").innerHTML = `
+    <div class="logo"><span class="fl">🔥</span>PromptStrava</div>
+    ${items.map(([k,l,ic])=>`<button class="railbtn${ui.tab===k&&store.onboarded?" on":""}" onclick="nav('${k}')">${ic}${l}</button>`).join("")}
+    <button class="railbtn" style="color:#fff;background:var(--grad);margin-top:8px;justify-content:center" onclick="openSubmit()">${IC.plus}Log a prompt</button>
+    <div class="railfoot">Web companion to the PromptStrava iOS app.<br>Same loop, same fire. Scored on-device.</div>`;
+}
+function renderTabbar(){
+  const items = [
+    ["home","Home",IC.home],["explore","Explore",IC.grid],
+    ["__plus","",""],
+    ["ranks","Ranks",IC.trophy],["profile","Profile",IC.person],
+  ];
+  $("#tabbar").innerHTML = items.map(([k,l,ic])=>
+    k==="__plus"
+      ? `<button class="tab" onclick="openSubmit()" aria-label="Log a prompt"><span class="tab-plus">${IC.plus}</span></button>`
+      : `<button class="tab${ui.tab===k&&store.onboarded?" on":""}" onclick="nav('${k}')">${ic}${l}</button>`
+  ).join("");
+}
+
+// ---------- screens ----------
+function homeHTML(){
+  const me = store.me, lv = levelOf(me.xp);
+  const feedItems = ui.feedAll ? feed() : personalizedFeed();
+  return `
+  <div class="hdr">
+    <div>
+      <h1>PromptStrava</h1>
+      <div class="sub">Level ${lv} · ${me.xp} XP</div>
+    </div>
+    <span class="streak" role="img" aria-label="${me.streak}-day streak">🔥 ${me.streak}</span>
+  </div>
+
+  <button class="challenge" style="margin-top:14px" onclick="openSubmit('challenge')">
+    <span class="eyebrow"><span>⚡ WEEKLY CHALLENGE</span><span>ends in ${CHALLENGE.endsIn}d</span></span>
+    <span class="theme">${esc(CHALLENGE.theme)}</span>
+    <span class="cta">${CATS[CHALLENGE.cat].em} ${CATS[CHALLENGE.cat].name} · tap to enter ${IC.arrow}</span>
+  </button>
+
+  <div class="secthead"><h2>Trending</h2><span class="acc">most used</span></div>
+  <div class="hscroll">
+    ${trending().map(p=>{
+      const comp = p.score?composite(p.score):null;
+      return `<button class="tcard" onclick="openDetail('${p.id}')">
+        <div style="display:flex;justify-content:space-between;align-items:center">
+          ${catChip(p.cat)}
+          ${comp!==null?`<b style="font-size:18px;color:${compColor(comp)}">${comp}</b>`:""}
+        </div>
+        <h3>${esc(p.title)}</h3>
+        <div class="foot">
+          <span class="statpill" style="color:var(--eff)">${IC.bolt}${p.used} uses</span>
+          <span>@${esc(userOf(p.author).handle)}</span>
+        </div>
+      </button>`;
+    }).join("")}
+  </div>
+
+  <div class="secthead">
+    <h2>Latest</h2>
+    ${store.interests.size?`<span style="display:flex;gap:4px">
+      <button class="filterchip${!ui.feedAll?" on":""}" onclick="ui.feedAll=false;render()">For you</button>
+      <button class="filterchip${ui.feedAll?" on":""}" onclick="ui.feedAll=true;render()">All</button>
+    </span>`:""}
+  </div>
+  <div class="feedlist">${feedItems.map(promptCardHTML).join("")}</div>`;
+}
+
+function exploreHTML(){
+  const q = ui.search.trim();
+  const results = q ? searchPrompts(q) : null;
+  return `
+  <div class="hdr"><div><h1>Explore</h1></div></div>
+  <div class="searchbox">${IC.search}
+    <input id="searchinput" type="search" placeholder="Prompts, categories, authors"
+      value="${esc(ui.search)}" oninput="setSearch(this.value)" aria-label="Search prompts">
+  </div>
+  ${results===null ? `
+    <div class="catgrid">
+      ${CAT_KEYS.map(k=>{
+        const c=CATS[k], n=inCategory(k).length;
+        return `<button class="cattile" onclick="openCat('${k}')"
+          style="border-color:${c.color}4d;background:linear-gradient(135deg,${c.color}38,var(--card) 65%)">
+          <span class="em">${c.em}</span>
+          <h3>${c.name}</h3>
+          <span class="n">${n} prompt${n===1?"":"s"}</span>
+        </button>`;
+      }).join("")}
+    </div>`
+  : results.length===0 ? `
+    <div class="emptystate" style="padding-top:70px">
+      <span class="em">🔍</span>
+      <p>No prompts match “${esc(q)}”. Try a category, an author handle, or a word from the prompt itself.</p>
+    </div>`
+  : `
+    <p style="font-size:12px;font-weight:700;color:var(--t3);margin:16px 2px 12px">${results.length} result${results.length===1?"":"s"}, best score first</p>
+    <div class="feedlist">${results.map(promptCardHTML).join("")}</div>`
+  }`;
+}
+function setSearch(v){
+  ui.search = v; ui.searchFocus = true;
+  render(true);
+}
+
+function categoryPageHTML(frame){
+  const c = CATS[frame.cat];
+  const list = inCategory(frame.cat, frame.sub);
+  return `
+  <button class="backbtn" onclick="back()">${IC.back}Explore</button>
+  <h1 style="margin:6px 0 14px;font-size:26px;font-weight:900">${c.em} ${c.name}</h1>
+  <div class="pillrow" style="margin-bottom:16px">
+    <button class="filterchip${!frame.sub?" on":""}" style="${!frame.sub?`color:${c.color};border-color:${c.color};background:${c.color}26`:""}" onclick="setSub(null)">All</button>
+    ${c.subs.map(s=>`<button class="filterchip${frame.sub===s?" on":""}" style="${frame.sub===s?`color:${c.color};border-color:${c.color};background:${c.color}26`:""}" onclick="setSub('${esc(s)}')">${esc(s)}</button>`).join("")}
+  </div>
+  ${list.length ? `<div class="feedlist">${list.map(promptCardHTML).join("")}</div>`
+  : `<div class="emptystate" style="padding-top:60px"><span class="em">${c.em}</span>
+      <p>No prompts here yet. Be the first to claim this subcategory.</p>
+      <button class="emptycta" onclick="openSubmit()">Log a prompt</button></div>`}`;
+}
+function setSub(s){
+  const top = ui.stack[ui.stack.length-1];
+  if(top && top.t==="cat"){ top.sub = s; render(); }
+}
+
+function ranksHTML(){
+  const entries = leaderboard(ui.lbCat, ui.lbTime);
+  const mine = myRank(ui.lbCat, ui.lbTime);
+  const tfs = [["week","This Week"],["month","This Month"],["all","All Time"]];
+  return `
+  <div class="hdr"><div><h1>Leaderboards</h1></div></div>
+  <div class="seg" style="margin-top:14px" role="tablist">
+    ${tfs.map(([k,l])=>`<button role="tab" aria-selected="${ui.lbTime===k}" class="${ui.lbTime===k?"on":""}" onclick="ui.lbTime='${k}';render()">${l}</button>`).join("")}
+  </div>
+  <div class="pillrow" style="margin:12px 0 16px">
+    <button class="filterchip${!ui.lbCat?" on":""}" onclick="ui.lbCat=null;render()">Global</button>
+    ${CAT_KEYS.map(k=>{
+      const c=CATS[k], on=ui.lbCat===k;
+      return `<button class="filterchip${on?" on":""}" style="${on?`color:${c.color};border-color:${c.color};background:${c.color}26`:""}" onclick="ui.lbCat='${k}';render()">${c.em} ${c.name}</button>`;
+    }).join("")}
+  </div>
+  ${entries.length===0 ? `
+    <div class="emptystate" style="padding-top:60px"><span class="em">🏆</span>
+      <p>No entries this period. Be the first to submit${ui.lbCat?" a "+CATS[ui.lbCat].name+" prompt":""}.</p>
+      <button class="emptycta" onclick="openSubmit()">Log a prompt</button></div>`
+  : `
+    <div class="feedlist" style="gap:8px">
+      ${entries.map(e=>{
+        const medal = e.rank===1?"#FFD700":e.rank===2?"#C0C0C0":e.rank===3?"#CD7F32":null;
+        return `<div class="lbrow${e.user.id===store.me.id?" me":""}">
+          <span class="rk" style="${medal?`color:${medal}`:""}">${e.rank}</span>
+          ${avatar(e.user,38)}
+          <span class="who"><b>${esc(e.user.name)}</b><span>@${esc(e.user.handle)} · ${e.count} prompt${e.count===1?"":"s"}</span></span>
+          ${e.delta!==0?`<span class="delta" style="color:${e.delta>0?"var(--func)":"var(--ember)"}">${e.delta>0?IC.up:IC.down}${Math.abs(e.delta)}</span>`:""}
+          <b class="best" style="color:${compColor(e.best)}">${e.best}</b>
+        </div>`;
+      }).join("")}
+    </div>
+    ${mine?`<div class="myrank"><span>Your rank</span><span style="flex:1"></span><b>#${mine}</b><span>of ${entries.length}</span></div>`:""}`
+  }`;
+}
+
+function profileHTML(){
+  const me = store.me, lv = levelOf(me.xp);
+  const into = me.xp - xpFloor(lv), span = xpFloor(lv+1)-xpFloor(lv);
+  const prog = Math.min(1, into/span);
+  const avg = (()=>{ const s=myPrompts().filter(p=>p.score).map(p=>composite(p.score)); return s.length?Math.round(s.reduce((a,b)=>a+b,0)/s.length):0; })();
+  const act = (()=>{ // submissions per day, last 7 days oldest→today
+    const out=[]; const mine=myPrompts();
+    for(let i=6;i>=0;i--){ const d=new Date(); d.setDate(d.getDate()-i); const k=dayKey(d);
+      out.push({k, n:mine.filter(p=>dayKey(p.createdAt)===k).length, dl:"SMTWTFS"[d.getDay()]}); }
+    return out;
+  })();
+  const peak = Math.max(1,...act.map(a=>a.n));
+  const list = ui.profTab==="mine" ? myPrompts() : savedPrompts();
+  const ringR=35.5, ringC=(2*Math.PI*ringR).toFixed(1);
+  return `
+  <div class="profhead">
+    <span class="badge-ring" style="position:relative;width:76px;height:76px;display:inline-flex;align-items:center;justify-content:center">
+      <svg width="76" height="76" viewBox="0 0 76 76" style="position:absolute;inset:0" aria-hidden="true">
+        <circle cx="38" cy="38" r="${ringR}" stroke="var(--elev)" stroke-width="5" fill="none"/>
+        <circle cx="38" cy="38" r="${ringR}" stroke="var(--flame)" stroke-width="5" fill="none" stroke-linecap="round"
+          stroke-dasharray="${ringC}" stroke-dashoffset="${(ringC*(1-prog)).toFixed(1)}" transform="rotate(-90 38 38)"/>
+      </svg>
+      ${avatar(me,58)}
+    </span>
+    <div>
+      <div style="font-size:22px;font-weight:900">${esc(me.name)}</div>
+      <div style="font-size:14px;font-weight:700;color:var(--t2)">@${esc(me.handle)}</div>
+      <div style="font-size:11px;font-weight:900;letter-spacing:.06em;color:var(--flame);margin-top:3px">LEVEL ${lv} · ${into}/${span} XP</div>
+    </div>
+  </div>
+
+  <div class="statrow">
+    <div class="statcard"><b style="color:${compColor(avg)}">${avg}</b><span>Avg Score</span></div>
+    <div class="statcard"><b style="color:var(--flame)">🔥${me.streak}</b><span>Day Streak</span></div>
+    <div class="statcard"><b style="color:var(--clarity)">${myPrompts().length}</b><span>Prompts</span></div>
+  </div>
+
+  <div class="card" style="margin-top:14px">
+    <div style="font-size:11px;font-weight:900;letter-spacing:.14em;color:var(--t3)">THIS WEEK</div>
+    <div class="weekbars">
+      ${act.map((a,i)=>`<div class="col">
+        <div class="bar${a.n>0?" hot":""}" style="height:${Math.max(8, 52*a.n/peak)}px"></div>
+        <span class="dl" style="${i===6?"color:var(--flame)":""}">${a.dl}</span>
+      </div>`).join("")}
+    </div>
+  </div>
+
+  <div class="secthead"><h2>Badges</h2></div>
+  ${me.badges.length ? `<div class="hscroll">
+    ${me.badges.map(b=>`<div class="badgecard" style="border-color:${b.color}59;background:${b.color}1a">
+      <span class="em">${b.em}</span><span>${esc(b.name)}</span></div>`).join("")}
+  </div>` : `<p style="font-size:13px;color:var(--t3);font-weight:600">Submit prompts to earn badges.</p>`}
+
+  <div class="secthead"><h2>Prompts</h2><span class="acc">${list.length}</span></div>
+  <div class="seg" style="margin-bottom:14px" role="tablist">
+    <button role="tab" aria-selected="${ui.profTab==="mine"}" class="${ui.profTab==="mine"?"on":""}" onclick="ui.profTab='mine';render()">Mine</button>
+    <button role="tab" aria-selected="${ui.profTab==="saved"}" class="${ui.profTab==="saved"?"on":""}" onclick="ui.profTab='saved';render()">Saved</button>
+  </div>
+  ${list.length ? `<div class="feedlist">${list.map(promptCardHTML).join("")}</div>`
+  : ui.profTab==="mine" ? `
+    <div class="emptystate card"><span class="em">🎯</span>
+      <p>Nothing logged yet. Your first score is one paste away.</p>
+      <button class="emptycta" onclick="openSubmit()">Log your first prompt</button></div>`
+  : `
+    <div class="emptystate card"><span class="em">🔖</span>
+      <p>Tap the bookmark on any prompt to keep it here for quick reuse.</p></div>`
+  }`;
+}
+
+// ---------- detail ----------
+function detailHTML(id){
+  const p = promptOf(id);
+  if(!p) return `<button class="backbtn" onclick="back()">${IC.back}Back</button><div class="emptystate"><span class="em">❓</span><p>Prompt not found.</p></div>`;
+  const u = userOf(p.author);
+  const comp = p.score?composite(p.score):null;
+  const liked = store.liked.has(p.id), used = store.used.has(p.id), saved = store.saved.has(p.id);
+  const orig = p.forkedFrom ? promptOf(p.forkedFrom) : null;
+  const axis = (name,val,color)=>`<div class="axis">
+    <div class="lab"><span>${name}</span><b style="color:${color}">${val}</b></div>
+    <div class="track" style="background:${color}26"><div class="fill" style="width:${val}%;background:${color}"></div></div>
+  </div>`;
+  const rat = (color,title,text)=>`<div class="rationale">
+    <span class="dot" style="background:${color}"></span>
+    <div><div class="rt" style="color:${color}">${title}</div><p>${esc(text)}</p></div>
+  </div>`;
+  return `
+  <button class="backbtn" onclick="back()">${IC.back}Back</button>
+  <div style="margin-top:6px">${catChip(p.cat,p.sub)}</div>
+  <h1 class="dtitle">${esc(p.title)}</h1>
+  <div class="dmeta">${avatar(u,26)} @${esc(u.handle)} <span style="color:var(--t3)">·</span> <span style="color:var(--t3)">${timeAgo(p.createdAt)}</span></div>
+  ${orig?`<button class="lineage" onclick="openDetail('${orig.id}')">${IC.fork}<span style="flex:1;text-align:left">Forked from “${esc(orig.title)}” by @${esc(userOf(orig.author).handle)}</span>›</button>`:""}
+
+  ${p.score?`<div class="card" style="margin-top:18px;display:flex;flex-direction:column;gap:16px">
+    <div style="display:flex;gap:20px;align-items:center">
+      ${ringHTML(comp,{size:110,lw:11,color:compColor(comp),label:tierName(comp)})}
+      <div style="flex:1;display:flex;flex-direction:column;gap:10px">
+        ${axis("CLARITY",p.score.c.v,"var(--clarity)")}
+        ${axis("FUNCTION",p.score.f.v,"var(--func)")}
+        ${axis("EFFICIENCY",p.score.e.v,"var(--eff)")}
+      </div>
+    </div>
+    <hr style="border:0;border-top:1px solid var(--stroke);margin:0">
+    <div style="display:flex;flex-direction:column;gap:12px">
+      ${rat("var(--clarity)","CLARITY",p.score.c.r)}
+      ${rat("var(--func)","FUNCTIONALITY",p.score.f.r)}
+      ${rat("var(--eff)","EFFICIENCY",p.score.e.r)}
+    </div>
+  </div>`:""}
+
+  <div class="card" style="margin-top:14px">
+    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px">
+      <span style="font-size:11px;font-weight:900;letter-spacing:.14em;color:var(--t3)">THE PROMPT</span>
+      <button class="copybtn" id="copybtn" onclick="copyPrompt('${p.id}')">${IC.copy}Copy</button>
+    </div>
+    <pre class="promptbody">${esc(p.text)}</pre>
+  </div>
+
+  <div style="display:flex;align-items:center;gap:10px;margin-top:14px">
+    ${p.models.map(m=>`<span class="modelchip">${m}</span>`).join("")}
+    <span style="flex:1"></span>
+    <span style="font-size:12px;font-weight:700;color:var(--t3)">~${tokensOf(p.text)} tokens</span>
+  </div>
+
+  <div class="actionbar">
+    <button class="actionbtn" style="color:${liked?"var(--ember)":"var(--t2)"}" onclick="toggleLike('${p.id}')">${IC.heart(liked)}${p.likes}</button>
+    <button class="actionbtn" style="color:${used?"var(--eff)":"var(--t2)"}" onclick="markUsed('${p.id}')">${IC.bolt}${used?"Used ✓":"I used this"}</button>
+    <button class="actionbtn" style="color:var(--clarity)" onclick="openFork('${p.id}')">${IC.fork}Fork</button>
+    <button class="actionbtn" style="color:${saved?"var(--flame)":"var(--t2)"}" onclick="toggleSave('${p.id}')">${IC.mark(saved)}Save</button>
+  </div>`;
+}
+
+// ---------- actions ----------
+function toggleLike(id){
+  const p = promptOf(id); if(!p) return;
+  if(store.liked.has(id)){ store.liked.delete(id); p.likes--; }
+  else { store.liked.add(id); p.likes++; }
+  persist(); render(true);
+}
+function markUsed(id){
+  const p = promptOf(id); if(!p || store.used.has(id)) return;
+  store.used.add(id); p.used++; persist(); render(true);
+  toast("Logged — that's what trending is built on ⚡");
+}
+function toggleSave(id){
+  const p = promptOf(id); if(!p) return;
+  const was = store.saved.has(id);
+  if(was) store.saved.delete(id); else store.saved.add(id);
+  persist(); render(true);
+  toast(was ? "Removed from Saved" : "Saved to your library 🔖");
+}
+async function copyToClipboard(text){
+  try { await navigator.clipboard.writeText(text); return true; }
+  catch(e){
+    const ta=document.createElement("textarea"); ta.value=text; document.body.appendChild(ta);
+    ta.select(); let ok=false; try{ ok=document.execCommand("copy"); }catch(_){}
+    ta.remove(); return ok;
+  }
+}
+async function copyPrompt(id){
+  const p = promptOf(id); if(!p) return;
+  const ok = await copyToClipboard(p.text);
+  const btn = $("#copybtn");
+  if(btn && ok){ btn.classList.add("ok"); btn.innerHTML = IC.check+"Copied"; setTimeout(()=>{ if($("#copybtn")){ $("#copybtn").classList.remove("ok"); $("#copybtn").innerHTML=IC.copy+"Copy"; } },1600); }
+  toast(ok?"Prompt copied — go use it":"Copy failed — select the text manually");
+}
+let toastTimer=null;
+function toast(msg){
+  const t=$("#toast"); t.textContent=msg; t.classList.add("show");
+  clearTimeout(toastTimer); toastTimer=setTimeout(()=>t.classList.remove("show"),2200);
+}
+
+// ---------- submit flow ----------
+function openSubmit(mode, forkOfId){
+  const seed = {cat:null, sub:null, challenge:false, forkOf:null};
+  if(mode==="challenge"){ seed.cat=CHALLENGE.cat; seed.challenge=true; }
+  if(forkOfId){ seed.forkOf=forkOfId; }
+  const orig = seed.forkOf ? promptOf(seed.forkOf) : null;
+  ui.sub = {
+    step:"compose", seed,
+    title: orig?orig.title:"", text: orig?orig.text:"",
+    cat: orig?orig.cat : (seed.cat||"work"),
+    subcat: orig?orig.sub : (seed.cat?CATS[seed.cat].subs[0]:""),
+    conf:0, outcome:null,
+  };
+  renderSubmit();
+}
+function openFork(id){ openSubmit(null,id); }
+function closeSubmit(){
+  ui.sub=null;
+  const ov=$("#submit-ov"); if(ov) ov.remove();
+  render();
+}
+
+function renderSubmit(){
+  let ov = $("#submit-ov");
+  if(!ov){ ov=document.createElement("div"); ov.id="submit-ov"; ov.className="overlay"; document.body.appendChild(ov); }
+  const s = ui.sub;
+  const title = s.step==="compose" ? (s.seed.forkOf?"Fork Prompt":"Log a Prompt") : s.step==="categorize" ? "Categorize" : "";
+  const canContinue = s.title.trim().length>0 && s.text.trim().length>=12;
+
+  let body="";
+  if(s.step==="compose"){
+    const orig = s.seed.forkOf?promptOf(s.seed.forkOf):null;
+    body = `
+    <div style="display:flex;flex-direction:column;gap:14px;flex:1;padding-bottom:24px">
+      ${s.seed.challenge?`<div class="notice" style="background:rgba(252,82,0,.12);color:var(--flame)">⚡ Weekly Challenge entry — ${esc(CHALLENGE.theme)}</div>`:""}
+      ${orig?`<div class="notice" style="background:rgba(56,189,248,.1);color:var(--clarity)">${IC.fork}<span>Forking “${esc(orig.title)}” — credit stays with the original.</span></div>`:""}
+      <input class="field" placeholder="Give it a name" value="${esc(s.title)}" maxlength="80"
+        oninput="ui.sub.title=this.value;subSync()">
+      <textarea class="field" placeholder="Paste or write the prompt you actually use…" spellcheck="false"
+        oninput="ui.sub.text=this.value;subSync()">${esc(s.text)}</textarea>
+      <div class="subfoot">
+        <span id="tokcount"># ~${tokensOf(s.text)} tokens</span>
+        <span style="color:var(--t3)">Judge: on-device</span>
+      </div>
+      <button class="btn-primary" id="subcontinue" ${canContinue?"":"disabled"} onclick="subContinue()">Continue</button>
+    </div>`;
+  }
+  else if(s.step==="categorize"){
+    body = `
+    <div style="display:flex;flex-direction:column;gap:18px;padding-bottom:24px">
+      ${s.conf>0.4 && !s.seed.forkOf && !s.seed.cat ? `<div style="display:flex;align-items:center;gap:8px;color:var(--flame);font-size:12px;font-weight:900">${IC.wand}Auto-detected · ${Math.round(s.conf*100)}% confident</div>`:""}
+      <h2 style="margin:0;font-size:20px;font-weight:900">Category</h2>
+      <div class="catpick">
+        ${CAT_KEYS.map(k=>{
+          const c=CATS[k], on=s.cat===k;
+          return `<button class="catbtn" style="${on?`color:${c.color};border-color:${c.color};background:${c.color}26`:""}" onclick="subPick('${k}')">${c.em} ${c.name}</button>`;
+        }).join("")}
+      </div>
+      <h2 style="margin:0;font-size:20px;font-weight:900">Subcategory</h2>
+      <div class="subchips">
+        ${CATS[s.cat].subs.map(sb=>{
+          const c=CATS[s.cat], on=s.subcat===sb;
+          return `<button class="subchip" style="${on?`color:${c.color};border-color:${c.color};background:${c.color}26`:""}" onclick="subPickSub('${esc(sb)}')">${esc(sb)}</button>`;
+        }).join("")}
+      </div>
+      <button class="btn-primary" style="margin-top:8px" onclick="subScore()">Score it</button>
+    </div>`;
+  }
+  else if(s.step==="judging"){
+    body = `
+    <div class="judging">
+      <svg width="120" height="120" viewBox="0 0 120 120" aria-hidden="true">
+        <circle cx="60" cy="60" r="55" stroke="var(--flame)" opacity=".2" stroke-width="10" fill="none"/>
+        <circle class="spin" cx="60" cy="60" r="55" stroke="var(--flame)" stroke-width="10" fill="none"
+          stroke-linecap="round" stroke-dasharray="96 250"/>
+        <text x="60" y="72" text-anchor="middle" font-size="34">⚖️</text>
+      </svg>
+      <h2>Judging your prompt…</h2>
+      <p>Clarity · Functionality · Efficiency</p>
+    </div>`;
+  }
+  else if(s.step==="reveal" && s.outcome){
+    const o = s.outcome, p = o.prompt, score = p.score, comp = composite(score);
+    const pills = []
+      .concat(o.isPersonalBest?[["🏆","Personal best","var(--eff)"]]:[])
+      .concat(o.didLevelUp?[["⬆️","Level "+levelOf(store.me.xp)+"!","var(--flame)"]]:[])
+      .concat(o.newBadges.map(b=>[b.em, b.name+" unlocked", b.color]));
+    body = `
+    <div style="display:flex;flex-direction:column;align-items:center;gap:20px;padding:12px 0 28px">
+      <div style="display:flex;flex-direction:column;align-items:center;gap:6px">
+        <span class="tier" style="color:${compColor(comp)}">${tierName(comp)}</span>
+        ${ringHTML(comp,{size:150,lw:13,color:compColor(comp),animate:true})}
+        <div style="font-size:18px;font-weight:800;text-align:center;max-width:30ch">${esc(p.title)}</div>
+        ${catChip(p.cat,p.sub)}
+      </div>
+      ${pills.length?`<div class="achieve">${pills.map(([em,l,c],i)=>`<span class="apill" style="color:${c};border-color:${c}66;background:${c.startsWith("var")?"rgba(255,255,255,.05)":c+"22"};animation-delay:${1.2+i*0.15}s">${em} ${esc(l)}</span>`).join("")}</div>`:""}
+      <div style="display:flex;gap:18px">
+        ${ringHTML(score.c.v,{size:82,lw:8,color:"var(--clarity)",label:"Clarity",animate:true,delay:0.5})}
+        ${ringHTML(score.f.v,{size:82,lw:8,color:"var(--func)",label:"Function",animate:true,delay:0.75})}
+        ${ringHTML(score.e.v,{size:82,lw:8,color:"var(--eff)",label:"Efficiency",animate:true,delay:1.0})}
+      </div>
+      <div class="card" style="width:100%;display:flex;flex-direction:column;gap:12px">
+        <div class="rationale"><span class="dot" style="background:var(--clarity)"></span><div><div class="rt" style="color:var(--clarity)">CLARITY</div><p>${esc(score.c.r)}</p></div></div>
+        <div class="rationale"><span class="dot" style="background:var(--func)"></span><div><div class="rt" style="color:var(--func)">FUNCTIONALITY</div><p>${esc(score.f.r)}</p></div></div>
+        <div class="rationale"><span class="dot" style="background:var(--eff)"></span><div><div class="rt" style="color:var(--eff)">EFFICIENCY</div><p>${esc(score.e.r)}</p></div></div>
+      </div>
+      <div class="xpline">
+        <span class="xp">✨ +${comp} XP · streak day ${store.me.streak}</span>
+        ${o.weeklyRank?`<span class="rank">#${o.weeklyRank} in ${CATS[p.cat].name} this week</span>`:""}
+      </div>
+      <div style="display:flex;gap:10px;width:100%">
+        <button class="btn-secondary" onclick="subShare()">${IC.share}Share</button>
+        <button class="btn-primary" onclick="closeSubmit()">Done</button>
+      </div>
+    </div>`;
+  }
+
+  ov.innerHTML = `<div class="inner">
+    <div class="ovnav">
+      ${s.step!=="judging"&&s.step!=="reveal"?`<button onclick="closeSubmit()">Cancel</button>`:"<span></span>"}
+      <h2>${title}</h2><span></span>
+    </div>
+    ${body}
+  </div>`;
+  activateRings(ov);
+}
+function subSync(){
+  const s=ui.sub;
+  const tok=$("#tokcount"); if(tok) tok.textContent = "# ~"+tokensOf(s.text)+" tokens";
+  const btn=$("#subcontinue"); if(btn) btn.disabled = !(s.title.trim().length>0 && s.text.trim().length>=12);
+}
+function subContinue(){
+  const s=ui.sub;
+  const det = detectCategory(s.text);
+  if(!s.seed.forkOf && !s.seed.cat){ s.cat=det.cat; s.subcat=det.sub; }
+  if(!s.subcat) s.subcat=CATS[s.cat].subs[0];
+  s.conf=det.conf; s.step="categorize"; renderSubmit();
+}
+function subPick(cat){ ui.sub.cat=cat; ui.sub.subcat=CATS[cat].subs[0]; renderSubmit(); }
+function subPickSub(sb){ ui.sub.subcat=sb; renderSubmit(); }
+async function subScore(){
+  const s=ui.sub; s.step="judging"; renderSubmit();
+  s.outcome = await doSubmit(s.title.trim(), s.text.trim(), s.cat, s.subcat, s.seed.forkOf);
+  if(ui.sub!==s) return; // cancelled meanwhile
+  s.step="reveal"; renderSubmit();
+}
+async function subShare(){
+  const o=ui.sub && ui.sub.outcome; if(!o) return;
+  const sc=o.prompt.score, comp=composite(sc);
+  const text = `My prompt “${o.prompt.title}” scored ${comp}/100 (${tierName(comp)}) on PromptStrava 🔥 Clarity ${sc.c.v} · Function ${sc.f.v} · Efficiency ${sc.e.v}`;
+  if(navigator.share){ try{ await navigator.share({text}); return; }catch(e){} }
+  const ok = await copyToClipboard(text);
+  toast(ok?"Score copied — paste it anywhere":"Couldn't copy — screenshot works too");
+}
+
+// ---------- onboarding ----------
+function renderOnboarding(){
+  let ov=$("#onb-ov");
+  if(!ov){ ov=document.createElement("div"); ov.id="onb-ov"; ov.className="overlay"; document.body.appendChild(ov); }
+  const p=ui.onbPage;
+  const canGo = p<2 || store.interests.size>0;
+  const btnLabel = p===0?"How it works":p===1?"Pick your arenas":"Start logging prompts";
+  let page="";
+  if(p===0) page=`
+    <div class="onbpage">
+      <span class="flamehero">🔥</span>
+      <h1>PromptStrava</h1>
+      <p class="lead">The prompts you use every day are a skill.<br>Log them. Score them. Compete.</p>
+    </div>`;
+  else if(p===1) page=`
+    <div class="onbpage">
+      <h2>Every prompt gets judged</h2>
+      <div style="display:flex;gap:20px">
+        ${ringHTML(86,{size:88,lw:8,color:"var(--clarity)",label:"Clarity",animate:true,delay:0.1})}
+        ${ringHTML(91,{size:88,lw:8,color:"var(--func)",label:"Function",animate:true,delay:0.35})}
+        ${ringHTML(78,{size:88,lw:8,color:"var(--eff)",label:"Efficiency",animate:true,delay:0.6})}
+      </div>
+      <div class="card" style="text-align:left;display:flex;flex-direction:column;gap:14px;width:100%">
+        <div class="rationale"><span class="dot" style="background:var(--clarity)"></span><div><b style="font-size:15px">Clarity</b><p style="margin:2px 0 0;font-size:13px;color:var(--t2)">Zero ambiguity. The model can't misread you.</p></div></div>
+        <div class="rationale"><span class="dot" style="background:var(--func)"></span><div><b style="font-size:15px">Functionality</b><p style="margin:2px 0 0;font-size:13px;color:var(--t2)">Reliably produces the output you actually wanted.</p></div></div>
+        <div class="rationale"><span class="dot" style="background:var(--eff)"></span><div><b style="font-size:15px">Efficiency</b><p style="margin:2px 0 0;font-size:13px;color:var(--t2)">No wasted tokens. Result in one shot.</p></div></div>
+      </div>
+      <p class="lead" style="font-size:14px">The judge scores each axis 0–100 and tells you exactly how to improve.</p>
+    </div>`;
+  else page=`
+    <div class="onbpage" style="justify-content:flex-start;padding-top:48px">
+      <h2>Where do you prompt?</h2>
+      <p class="lead" style="font-size:14px">Pick at least one. This shapes your feed.</p>
+      <div class="intgrid">
+        ${CAT_KEYS.map(k=>{
+          const c=CATS[k], on=store.interests.has(k);
+          return `<button class="intbtn" style="${on?`color:${c.color};border-color:${c.color};background:${c.color}26`:""}" onclick="onbToggle('${k}')">
+            <span class="em">${c.em}</span>${c.name}</button>`;
+        }).join("")}
+      </div>
+    </div>`;
+  ov.innerHTML = `<div class="inner"><div class="onb">
+    ${page}
+    <div class="dots">${[0,1,2].map(i=>`<span class="${i===p?"on":""}"></span>`).join("")}</div>
+    <button class="btn-primary" ${canGo?"":"disabled"} onclick="onbNext()">${btnLabel}</button>
+  </div></div>`;
+  activateRings(ov);
+}
+function closeOnboarding(){ const ov=$("#onb-ov"); if(ov) ov.remove(); }
+function onbToggle(k){
+  if(store.interests.has(k)) store.interests.delete(k); else store.interests.add(k);
+  persist(); renderOnboarding();
+}
+function onbNext(){
+  if(ui.onbPage<2){ ui.onbPage++; renderOnboarding(); }
+  else { store.onboarded=true; persist(); render(); }
+}
+
+// ---------- boot ----------
+loadStore();
+render();
+</script>
