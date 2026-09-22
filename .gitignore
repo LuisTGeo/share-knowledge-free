@@ -1,0 +1,4 @@
+.branch/
+node_modules/
+.env
+*.log

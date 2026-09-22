@@ -1,57 +1,85 @@
-# PromptStrava 🔥
+# Branch
 
-Strava for prompting: log the LLM prompts you use in daily life, get them scored by an AI judge on **Clarity / Functionality / Efficiency**, and see how you rank.
+A local working prototype of a project discovery and remix platform. Try a running app, fork it, make changes, and publish your version to the local gallery.
 
-## Run it
+## Run
 
-**iOS app**
-1. Open `PromptStrava.xcodeproj` in **Xcode 16 or newer**.
-2. Pick an iOS 17+ simulator and hit **Run**.
+Requires Node.js 20 or newer. No dependencies or build step.
 
-No dependencies, no packages — pure SwiftUI.
+```sh
+npm start
+```
 
-**Web companion**
+Open **http://localhost:4173**. To use another port: `PORT=4300 npm start`.
 
-`web/index.html` is the full app as a single self-contained page — same palette, same core loop (onboarding → submit → animated score reveal → leaderboards), same on-device judge ported to JS, persisted in `localStorage`. Open it directly in a browser or host it anywhere; on phones it renders as the app, on desktop it gains a nav rail. No build step, no dependencies.
+## What works
 
-## The v1 core loop
+- Six runnable, self-contained starters: a meal planner, task board, portfolio, expense tracker, focus timer, and nutrition API playground.
+- A visual Home feed with For you, Following, and Latest views; chosen interests influence recommendations.
+- Persistent likes, comments, changeable 1–5 star ratings, creator follows, and saved projects.
+- Creator profiles, continuous project discovery, scroll restoration, and phone bottom navigation.
+- Search, category filters, sorting, and persistent saved projects.
+- A native SwiftUI iOS app with the same feed, reactions, comments, profiles, live previews, remixes, and editing workspace.
+- Independent project forks with attribution and a personal workspace.
+- Source editing, live previews, HTML export, and restoration of up to 20 earlier edits.
+- Import and locally publish your own HTML application, including inline CSS and JavaScript.
+- Optional real AI editing through a local Ollama model. Failed requests and invalid output leave the project unchanged.
+- Local improvement proposals that preserve a code snapshot, with original/proposed preview links in Activity.
+- Responsive layouts, keyboard-accessible controls, modal focus handling, and reduced-motion support.
 
-**Submit → Score → Rank**, wrapped in a Strava-confident dark UI:
+## iOS app
 
-- **Onboarding** — swipeable 3-page intro with a live scoring-ring demo and interest picker.
-- **Home feed** — tappable weekly challenge banner (deep-links into a pre-categorized submission), trending prompts (ranked by real usage), and a **"For you" feed filter** powered by the onboarding interests.
-- **Submit flow** — write/paste a prompt → AI-assisted category detection → confirm → **animated score reveal** (staggered rings, count-up numbers, haptics) with the full payoff: XP + streak, **personal best / level-up / badge-unlock celebrations**, your weekly category rank, and a share button.
-- **Prompt detail** — full text with copy, score rings + per-axis rationale (the teaching moment), like / "I used this" / fork / save. Forks track lineage back to the original author. Cards also support long-press quick actions (copy / like / save).
-- **Leaderboards** — global + per-category, week/month/all-time, your rank pinned at the bottom.
-- **Profile** — level ring, avg score, streak flame, weekly activity bars, badges, and a **Mine / Saved** prompt library.
-- **Explore** — category grid → subcategory drill-down, plus **search** across titles, prompt text, categories, and authors.
-- **Persistence** — your prompts, XP, streak, badges, likes, saves, and interests survive relaunch (JSON in Documents; seed content uses stable IDs so references stay valid). Streaks are recomputed honestly from actual submission days on every launch.
+Open `PromptStrava.xcodeproj`, select the **PromptStrava** scheme and an iPhone simulator, then Run. The app appears as **Branch**. Start `npm start` on the Mac first; the simulator connects to `http://localhost:4173` automatically. Use **You → Connection settings** to change the server address.
 
-## Scoring judge
+Home, Explore, Studio, Saved, and You are native SwiftUI screens. Live project previews use isolated WKWebViews. You can like, comment, rate, follow, choose interests, fork, edit source, restore a previous edit, export HTML, publish locally, or request an Ollama edit. Web and iOS use the same local server profile. When disconnected, the cached catalog and bundled starter previews remain browsable; server changes require reconnecting.
 
-Two judges, picked automatically at submit time:
+A physical iPhone requires a reachable HTTPS backend and Apple signing configuration. Public backend hosting, authentication, TestFlight and App Store distribution are not configured in this local edition. Do not point the iPhone at its own localhost expecting to reach the Mac.
 
-| Judge | When | How |
-|---|---|---|
-| **Claude (LLM-as-judge)** | An Anthropic API key is configured | Raw HTTPS call to `POST /v1/messages` (`claude-opus-4-8`) with a fixed rubric and a JSON-schema-constrained output — three 0–100 scores plus a one-line teaching rationale per axis. Handles `stop_reason: "refusal"`. |
-| **On-device heuristic** | No key / offline / API error | Deterministic feature analysis (structure, format spec, constraints, token economy, redundancy) so the app is fully usable with zero setup. |
+To refresh bundled starter content after editing the web templates:
 
-The Submit screen shows which judge is active (`Judge: Claude` / `Judge: on-device`).
+```sh
+node scripts/sync-ios-seeds.mjs
+```
 
-### Configuring the Claude judge (optional)
+## AI editing
 
-Either:
+Run Ollama on this computer and install a coding-capable model, for example:
 
-- **Scheme env var** — Edit Scheme → Run → Environment Variables → add `ANTHROPIC_API_KEY`, or
-- **Secrets.plist** — add a `Secrets.plist` file inside the `PromptStrava/` source folder with a string entry `ANTHROPIC_API_KEY`. Don't commit it.
+```sh
+ollama pull qwen2.5-coder:7b
+```
 
-## Architecture notes
+Choose **Connect an agent** in Branch. After it detects your installed model, fork a project and describe a change in its workspace. Review the live result and use **Restore previous** if needed.
 
-- `AppStore` (`@MainActor ObservableObject`) holds all state with realistic seed data and persists everything the user creates or touches to `Documents/promptstrava-state.json`.
-- `SubmitSeed` / `pendingSubmit` let any surface (tab bar, challenge banner, empty states) open the submit flow with a prefilled starting point; `SubmitOutcome` carries the celebration data (new badges, level-up, personal best, weekly rank) to the reveal screen.
-- `ScoringService.swift` — judge protocol + Claude client + heuristic fallback + keyword-based category detector.
-- Everything compiles for macOS too (via tiny shims in `Support/Platform.swift`) so the whole app can be typechecked headlessly in CI: `swiftc -typecheck -parse-as-library -swift-version 5 $(find PromptStrava -name '*.swift')`.
+Branch calls Ollama's `/api/tags` and `/api/chat` endpoints. The default agent URL is `http://127.0.0.1:11434`; override it using `BRANCH_AGENT_URL` when starting the server. The complete current source and your instructions are sent to that configured model endpoint. Branch does not install or download models automatically.
 
-## Deferred to v2 (by design)
+You can also export the HTML and use it in another coding agent, then paste the updated source into the editor or import it as a new project.
 
-Comments, follows/friends-only boards, community output-testing, real rank-delta history, server backend, push/streak reminders.
+## Storage and scope
+
+Projects, revisions, bookmarks, reactions, comments, follows, interests, activity, and proposal snapshots persist in `.branch/state.json`. This directory is gitignored. Back it up to preserve your work, or use **Export HTML** for individual projects. Tests use a separate temporary directory. `BRANCH_DATA_DIR` can point to another storage location.
+
+This edition is deliberately **local and single-user**. The server binds to `127.0.0.1`. Publishing adds an app to this computer's gallery; it does not deploy to the public internet. Starter authors are illustrative example data. Visible reaction and remix counts reflect actual local actions. Both clients share one local profile; there are no public community accounts. Demo app interactions use in-memory sample data and reset when reloaded; project source changes persist.
+
+Supported projects are single-file HTML apps. Preview documents are sandboxed and disallow network requests, external JavaScript, and external stylesheets. Full-stack repositories, databases, account authentication, public hosting, GitHub pull requests, arbitrary coding-agent integrations, and shared idle-compute scheduling are not implemented. Local proposals do not contact external authors or automatically merge changes.
+
+Do not expose this local server as a public service without adding authentication, per-user authorization, quotas, durable database storage, and a dedicated preview origin.
+
+## Verification
+
+```sh
+npm test
+```
+
+Integration tests cover likes, ratings, comments, follows, interests, social persistence, independent forks, preview isolation, editing, restoration, invalid HTML, AI output and failure handling with a mock model service, publishing, bookmarks, imports, exports, proposal snapshots, origin checks, size limits, and persistence across server restarts.
+
+See [UX research](docs/UX-RESEARCH.md) and the [verification report](docs/verification/REPORT.md) for design rationale, screenshots, test evidence and remaining checks.
+
+## Structure
+
+- `server.mjs` — local HTTP API, file persistence, preview isolation, and model bridge.
+- `web/index.html`, `web/app.js`, `web/community.js`, `web/styles.css` — the application.
+- `web/lib/templates.mjs` — the six example projects.
+- `tests/server.test.mjs` — server integration tests.
+
+The iOS implementation is in `PromptStrava/Branch/`. The previous PromptStrava SwiftUI screens are retained for the other platform targets. Its original web companion is at `/promptstrava.html`, and its original documentation is in [docs/PROMPTSTRAVA.md](docs/PROMPTSTRAVA.md).

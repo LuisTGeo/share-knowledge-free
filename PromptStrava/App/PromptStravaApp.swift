@@ -6,10 +6,14 @@ struct PromptStravaApp: App {
 
     var body: some Scene {
         WindowGroup {
+            #if os(iOS)
+            BranchRootView()
+            #else
             RootView()
                 .environmentObject(store)
                 .preferredColorScheme(.dark)
                 .tint(Theme.flame)
+            #endif
         }
     }
 }
