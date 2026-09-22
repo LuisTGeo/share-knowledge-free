@@ -29,7 +29,7 @@ Open **http://localhost:4173**. To use another port: `PORT=4300 npm start`.
 
 ## iOS app
 
-Open `PromptStrava.xcodeproj`, select the **PromptStrava** scheme and an iPhone simulator, then Run. The app appears as **Branch**. Start `npm start` on the Mac first; the simulator connects to `http://localhost:4173` automatically. Use **You → Connection settings** to change the server address.
+Open `Branch.xcodeproj`, select the **Branch** scheme and an iPhone simulator, then Run. The app appears as **Branch**. Start `npm start` on the Mac first; the simulator connects to `http://localhost:4173` automatically. Use **You → Connection settings** to change the server address.
 
 Home, Explore, Studio, Saved, and You are native SwiftUI screens. Live project previews use isolated WKWebViews. You can like, comment, rate, follow, choose interests, fork, edit source, restore a previous edit, export HTML, publish locally, or request an Ollama edit. Web and iOS use the same local server profile. When disconnected, the cached catalog and bundled starter previews remain browsable; server changes require reconnecting.
 
@@ -82,4 +82,4 @@ See [UX research](docs/UX-RESEARCH.md) and the [verification report](docs/verifi
 - `web/lib/templates.mjs` — the six example projects.
 - `tests/server.test.mjs` — server integration tests.
 
-The iOS implementation is in `PromptStrava/Branch/`. The previous PromptStrava SwiftUI screens are retained for the other platform targets. Its original web companion is at `/promptstrava.html`, and its original documentation is in [docs/PROMPTSTRAVA.md](docs/PROMPTSTRAVA.md).
+The iOS implementation is in `Branch/`. The repository also retains a small archived legacy source set for historical reference; it is not part of the Branch product flow. The original web companion and archived documentation remain available for reference.

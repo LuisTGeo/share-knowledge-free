@@ -17,7 +17,9 @@ Verified on 18 September 2026 using Computer Use in the Codex browser, the Node 
 | Remix regression | Created a named test fork from the mobile feed, changed its heading, saved, and verified the new heading in the live preview. |
 | API integration suite | `npm test`: 13 tests passed, including the parent suite. Covers social validation/persistence and the earlier editing, preview isolation and project lifecycle. |
 | iOS compilation | Debug simulator build succeeded for iPhone 17 Pro, iOS 26.5. |
-| iOS launch and data | Installed and launched Branch. Its generated cache contained six projects and the same like, five-star rating, comment count, follow and interests used by the browser. This verifies launch/network/model integration, not rendered UI. |
+| iOS launch and data | Installed and launched Branch. Its generated cache contained six projects and the same shared project data used by the browser. |
+| Native iOS feed | Inspected the iPhone 17 Pro simulator visually and through accessibility: warm Branch header, creator strip, feed tabs, live preview card and five-item tab bar rendered correctly. The title is centered and no longer clipped. |
+| Native iOS interactions | Opened the rating sheet, selected five stars and verified the selected state; opened comments, entered and posted a comment, and verified it rendered in the conversation; opened a live project preview and created a remix into Studio. |
 
 The test-only remix and social actions were removed after verification. Screenshots show intermediate test state.
 
@@ -29,9 +31,11 @@ These are actual browser captures, not design mockups. The phone image is the re
 
 ![Phone web feed](mobile-feed.png)
 
+![Native iOS comments](ios-comments.png)
+
 ## Remaining checks and scope
 
-Computer Use could not inspect or operate iOS Simulator because macOS reported the screen locked. Native screenshots, tap flows, keyboard layout and VoiceOver checks remain unverified. Unlock the Mac to finish those checks. Simulator launch and successful compilation do not substitute for them.
+VoiceOver was not enabled for this pass, so a dedicated spoken-navigation audit remains future work. The native checks above used simulator accessibility labels and visual screenshots.
 
 No live Ollama model was installed or downloaded for this verification; automated tests exercise model output and failures through a mock model server. Public accounts, multi-user moderation, public hosting, distributed compute and App Store delivery remain outside the implemented local prototype.
 

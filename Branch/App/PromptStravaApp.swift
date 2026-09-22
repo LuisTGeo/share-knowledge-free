@@ -1,7 +1,7 @@
 import SwiftUI
 
 @main
-struct PromptStravaApp: App {
+struct BranchApp: App {
     @StateObject private var store = AppStore()
 
     var body: some Scene {
