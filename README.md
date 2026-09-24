@@ -83,3 +83,30 @@ See [UX research](docs/UX-RESEARCH.md) and the [verification report](docs/verifi
 - `tests/server.test.mjs` — server integration tests.
 
 The iOS implementation is in `Branch/`.
+
+## Notion planning
+
+- [Share Knowledge Free project overview](https://app.notion.com/p/3e2a8e8730b781bfad03ebf7bbf89468)
+- [Branch implementation roadmap and task sequence](https://app.notion.com/p/3e4a8e8730b781aea523ed550d2a4ff3)
+- [Full implementation workflow](https://app.notion.com/p/3e4a8e8730b7813b959ed6bcea94bf23)
+- [Choose a search backend for the unified project catalog](https://app.notion.com/p/3e4a8e8730b781fb881efa5556b61bfb)
+- [Define the canonical project catalog and curation lifecycle](https://app.notion.com/p/3e4a8e8730b781e990b4de1d7e77287f)
+
+## Prompt for a new implementation conversation
+
+Copy this prompt into a new conversation in the Branch project:
+
+```text
+Continue work on Share Knowledge Free, whose product and app are named Branch.
+
+First read AGENTS.md and README.md, then review the linked Notion project overview, implementation roadmap, full workflow, and current high-priority search/catalog tasks. Treat the live Notion roadmap and task statuses as the planning source of truth. Inspect the current Git branch, recent commits, and working-tree changes before editing anything. Distinguish pushed work from local uncommitted changes and preserve them.
+
+Where the project stands according to the roadmap:
+- Phases 0–3 are complete for the current starter catalog.
+- The bounded Phase 7 metadata-only GitHub discovery/catalog slice and Phase 8 single-file preview security slice are complete. Repository execution and broader security infrastructure are still deferred.
+- The canonical catalog data model and curation lifecycle task is complete.
+- The high-priority unified-search backend task is waiting on the paired cloud datastore/setup decision. Its current recommendation is to keep catalog records in the application database; if PostgreSQL is chosen, evaluate native full-text search plus pg_trgm first. Do not select or install a stack before the paired decision.
+- AI/model implementation, project setup, stacks, commands, dependencies, and changes to forked projects are the final step and will be done together with the user. Do not begin that work independently.
+
+Verify these points against the current Notion pages and repository; they may have changed. Then tell me briefly where we are and identify the next bounded task that can proceed without the paired setup/model work. Follow the evidence-first workflow: use a real user journey or recorded evidence, address its largest blocker, validate it, and record the outcome in Notion. Before making code changes, explain the proposed task and scope. When a phase is complete, report that milestone and the next phase.
+```
