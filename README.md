@@ -82,4 +82,4 @@ See [UX research](docs/UX-RESEARCH.md) and the [verification report](docs/verifi
 - `web/lib/templates.mjs` — the six example projects.
 - `tests/server.test.mjs` — server integration tests.
 
-The iOS implementation is in `Branch/`. The repository also retains a small archived legacy source set for historical reference; it is not part of the Branch product flow. The original web companion and archived documentation remain available for reference.
+The iOS implementation is in `Branch/`.

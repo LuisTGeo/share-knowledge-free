@@ -420,7 +420,7 @@ const server = http.createServer(async (req, res) => {
           ? "text/javascript"
           : "text/html; charset=utf-8",
       "Cache-Control": "no-cache",
-      "Content-Security-Policy": `default-src 'self'; script-src 'self' ${route === "/promptstrava.html" ? "'unsafe-inline'" : ""}; style-src 'self' 'unsafe-inline'; frame-src 'self' blob:; img-src 'self' data:; connect-src 'self'; base-uri 'self'; frame-ancestors 'self'`,
+      "Content-Security-Policy": "default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; frame-src 'self' blob:; img-src 'self' data:; connect-src 'self'; base-uri 'self'; frame-ancestors 'self'",
     });
     fs.createReadStream(path.join(root, "web", files[route])).pipe(res);
   } catch (error) {
